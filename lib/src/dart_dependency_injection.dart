@@ -1,3 +1,5 @@
+import 'dart:async';
+
 part 'exception.dart';
 part 'service_descriptor.dart';
 part 'service_collection.dart';
