@@ -41,8 +41,8 @@ class ServiceProvider {
       }
     }
     // 如果是范围单例，并且当前不是原始[ServiceProvider],从原始提供者找单例
-    if (serviceDefinition.isScopeSingleton && originalProvider != null) {
-      final singletonValue = originalProvider._singletons[serviceType];
+    if (serviceDefinition.isScopeSingleton) {
+      final singletonValue = (originalProvider ?? this)._singletons[serviceType];
       if (singletonValue != null) {
         return singletonValue;
       }
@@ -59,11 +59,11 @@ class ServiceProvider {
     final service = serviceDefinition.factory(provider);
     // 如果服务是 [DependencyInjectionService]类型
     if (service is DependencyInjectionService) {
-      service._serviceProvider = provider;
+      service._serviceProvider = serviceDefinition.isSingleton ? this : provider;
       var initResult = service.dependencyInjectionServiceInitialize();
       if (initResult is Future) {
-        _latestServiceInitializeProcess = initResult;
-        scheduleMicrotask(() => _latestServiceInitializeProcess = null);
+        provider._latestServiceInitializeProcess = initResult;
+        scheduleMicrotask(() => provider._latestServiceInitializeProcess = null);
         _asyncServiceInitializeProcessByType[serviceType] ??= <Future>[];
         _asyncServiceInitializeProcessByType[serviceType]!.add(initResult);
         initResult.then(
@@ -94,26 +94,60 @@ class ServiceProvider {
     final serviceDefinition = _serviceDescriptors[serviceType];
     if (serviceDefinition == null) {
       var service = parent?._get(serviceType, originalProvider: originalProvider ?? this);
-      if (service == null) {
-        throw ServiceNotFoundException(
-          'Service ${serviceType.toString()} not found',
-        );
-      }
       return service;
     }
     return __get(serviceDefinition, serviceType, originalProvider: originalProvider);
   }
 
   /// 获取服务
-  T get<T extends Object>() => _get(T);
+  T get<T extends Object>() {
+    var service = _get(T);
+    if (service == null) {
+      throw ServiceNotFoundException(
+        'Service ${T.toString()} not found',
+      );
+    }
+    return service;
+  }
+
+  /// 尝试获取服务，如果服务不存在返回null
+  T? tryGet<T extends Object>() => _get(T);
 
   /// 根据类型获取服务
-  dynamic getByType(Type type) => _get(type);
+  dynamic getByType(Type type) {
+    var service = _get(type);
+    if (service == null) {
+      throw ServiceNotFoundException(
+        'Service ${type.toString()} not found',
+      );
+    }
+    return service;
+  }
 
-  /// 等待最近一个获取的服务初始化，即执行完[DependencyInjectionService.dependencyInjectionServiceInitialize]
+  /// 尝试获取服务，如果服务不存在返回null
+  dynamic tryGetByType(Type type) => _get(type);
+
+  /// 等待最近一个获取的服务初始化，即获取的服务执行完[DependencyInjectionService.dependencyInjectionServiceInitialize]
   ///
   /// 在获取服务后必须立即await [waitLatestServiceInitialize]，否则不要await
   FutureOr waitLatestServiceInitialize() => _latestServiceInitializeProcess;
+
+  /// 等待当前全部的服务初始化
+  FutureOr waitServicesInitialize() {
+    var parentWait = parent?.waitServicesInitialize();
+    var selfProcress = _asyncServiceInitializeProcessByType.values.expand((element) => element);
+    var futures = <Future>[
+      if (parentWait != null) parentWait as Future,
+      ...selfProcress,
+    ];
+    if (futures.isEmpty) return null;
+    return Future(
+      () async {
+        await Future.wait(futures);
+        await waitServicesInitialize();
+      },
+    );
+  }
 
   /// 生成一个范围
   ///
