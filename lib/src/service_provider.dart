@@ -26,6 +26,9 @@ class ServiceProvider {
   /// 存储的单例
   final Map<Type, Object> _singletons = {};
 
+  /// 存储的单例
+  final List<ServiceProvider> _scopeds = [];
+
   /// 根据[ServiceDescriptor]获取服务
   ///
   /// [ServiceDescriptor]服务描述
@@ -37,13 +40,20 @@ class ServiceProvider {
     if (serviceDefinition.isSingleton) {
       final singletonValue = _singletons[serviceType];
       if (singletonValue != null) {
+        // 如果这个服务还在初始化
+        _latestServiceInitializeProcess = _asyncServiceInitializeProcessByType[serviceType]?.firstOrNull;
+        scheduleMicrotask(() => _latestServiceInitializeProcess = null);
         return singletonValue;
       }
     }
     // 如果是范围单例，并且当前不是原始[ServiceProvider],从原始提供者找单例
     if (serviceDefinition.isScopeSingleton) {
-      final singletonValue = (originalProvider ?? this)._singletons[serviceType];
+      var provider = (originalProvider ?? this);
+      final singletonValue = provider._singletons[serviceType];
       if (singletonValue != null) {
+        // 如果这个服务还在初始化
+        provider._latestServiceInitializeProcess = provider._asyncServiceInitializeProcessByType[serviceType]?.firstOrNull;
+        scheduleMicrotask(() => provider._latestServiceInitializeProcess = null);
         return singletonValue;
       }
     }
@@ -55,10 +65,12 @@ class ServiceProvider {
     final service = serviceDefinition.factory(provider);
     // 如果服务是 [DependencyInjectionService]类型
     if (service is DependencyInjectionService) {
+      var serviceProvider = serviceDefinition.isSingleton ? this : provider;
+      assert(service._serviceProvider == null || service._serviceProvider == serviceProvider, "Don't inject the same service instance into multiple scopes");
       // 单例服务所在的范围永远是定义它的范围
-      service._serviceProvider = serviceDefinition.isSingleton ? this : provider;
+      service._serviceProvider = serviceProvider;
       // 初始化服务
-      var initResult = service.dependencyInjectionServiceInitialize();
+      var initResult = (service._serviceInitializeFuture ??= service._dependencyInjectionServiceInitialize());
       // 如果是异步初始化
       if (initResult is Future) {
         // 设置最近的异步future
@@ -76,6 +88,7 @@ class ServiceProvider {
             if (_asyncServiceInitializeProcessByType[serviceType]!.isEmpty) {
               _asyncServiceInitializeProcessByType.remove(serviceType);
             }
+            service._serviceInitializeFuture = null;
           },
         );
       }
@@ -166,9 +179,14 @@ class ServiceProvider {
   void dispose() {
     for (final element in _singletons.values) {
       if (element is DependencyInjectionService) {
-        element.dispose();
+        if (element._hasBeenDispose == false) element.dispose();
       }
     }
     _singletons.clear();
+    for (var element in [..._scopeds]) {
+      _scopeds.remove(element);
+      element.dispose();
+    }
+    parent?._scopeds.remove(this);
   }
 }

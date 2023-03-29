@@ -73,6 +73,7 @@ class ServiceCollection {
     for (var element in _initializeWhenProviderBuilt.keys) {
       provider.__get(_initializeWhenProviderBuilt[element]!, element);
     }
+    parent._scopeds.add(provider);
     return provider;
   }
 

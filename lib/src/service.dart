@@ -2,13 +2,23 @@ part of './dart_dependency_injection.dart';
 
 /// 可以将这个类混入由依赖注入生成的服务
 mixin DependencyInjectionService on Object {
+  bool _isInitDependencyInjectionService = false;
+  FutureOr? _serviceInitializeFuture;
   ServiceProvider? _serviceProvider;
   ServiceProvider get serviceProvider {
     assert(_serviceProvider != null, 'this service create not from ioc container');
     return _serviceProvider!;
   }
 
+  bool _hasBeenDispose = false;
   late final List<ServiceProvider> _buildScopedServiceProvides = [];
+
+  /// 初始化服务
+  FutureOr _dependencyInjectionServiceInitialize() {
+    if (_isInitDependencyInjectionService) return null;
+    _isInitDependencyInjectionService = true;
+    return dependencyInjectionServiceInitialize();
+  }
 
   /// 获取服务
   T getService<T extends Object>() => serviceProvider.get<T>();
@@ -40,6 +50,7 @@ mixin DependencyInjectionService on Object {
 
   /// 当所在的[ServiceProvider]被释放时执行
   void dispose() {
+    _hasBeenDispose = true;
     for (var element in _buildScopedServiceProvides) {
       element.dispose();
     }
