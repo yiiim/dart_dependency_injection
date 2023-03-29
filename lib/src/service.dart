@@ -8,6 +8,7 @@ mixin DependencyInjectionService on Object {
     return _serviceProvider!;
   }
 
+  bool _hasBeenDispose = false;
   late final List<ServiceProvider> _buildScopedServiceProvides = [];
 
   /// 获取服务
@@ -40,6 +41,7 @@ mixin DependencyInjectionService on Object {
 
   /// 当所在的[ServiceProvider]被释放时执行
   void dispose() {
+    _hasBeenDispose = true;
     for (var element in _buildScopedServiceProvides) {
       element.dispose();
     }

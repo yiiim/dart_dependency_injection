@@ -55,8 +55,10 @@ class ServiceProvider {
     final service = serviceDefinition.factory(provider);
     // 如果服务是 [DependencyInjectionService]类型
     if (service is DependencyInjectionService) {
+      var serviceProvider = serviceDefinition.isSingleton ? this : provider;
+      assert(service._serviceProvider == null || service._serviceProvider == serviceProvider, "Don't inject the same service instance into multiple scopes");
       // 单例服务所在的范围永远是定义它的范围
-      service._serviceProvider = serviceDefinition.isSingleton ? this : provider;
+      service._serviceProvider = serviceProvider;
       // 初始化服务
       var initResult = service.dependencyInjectionServiceInitialize();
       // 如果是异步初始化
@@ -166,7 +168,7 @@ class ServiceProvider {
   void dispose() {
     for (final element in _singletons.values) {
       if (element is DependencyInjectionService) {
-        element.dispose();
+        if (element._hasBeenDispose == false) element.dispose();
       }
     }
     _singletons.clear();
