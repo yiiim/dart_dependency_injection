@@ -8,6 +8,8 @@ mixin DependencyInjectionService on Object {
     return _serviceProvider!;
   }
 
+  late final List<ServiceProvider> _buildScopedServiceProvides = [];
+
   /// 获取服务
   T getService<T extends Object>() => serviceProvider.get<T>();
 
@@ -21,7 +23,11 @@ mixin DependencyInjectionService on Object {
   dynamic tryGetServiceByType(Type type) => serviceProvider.tryGetByType(type);
 
   /// 生成一个范围
-  ServiceProvider buildScopeService<T>({void Function(ServiceCollection)? builder, Object? scope}) => serviceProvider.buildScope(builder: builder, scope: scope);
+  ServiceProvider buildScopeService<T>({void Function(ServiceCollection)? builder, Object? scope}) {
+    var scopedProvider = serviceProvider.buildScope(builder: builder, scope: scope);
+    _buildScopedServiceProvides.add(scopedProvider);
+    return scopedProvider;
+  }
 
   /// 初始化服务
   FutureOr dependencyInjectionServiceInitialize() {}
@@ -33,5 +39,9 @@ mixin DependencyInjectionService on Object {
   FutureOr waitServicesInitialize() => serviceProvider.waitServicesInitialize();
 
   /// 当所在的[ServiceProvider]被释放时执行
-  void dispose() {}
+  void dispose() {
+    for (var element in _buildScopedServiceProvides) {
+      element.dispose();
+    }
+  }
 }

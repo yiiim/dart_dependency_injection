@@ -6,7 +6,7 @@ class ServiceCollection {
   final Map<Type, ServiceDescriptor> _serviceDescriptor = {};
   final Map<Type, ServiceDescriptor> _initializeWhenProviderBuilt = {};
 
-  /// 是否运行覆盖
+  /// 是否允许覆盖
   final bool allowOverrides;
 
   /// 添加一个服务
@@ -39,15 +39,11 @@ class ServiceCollection {
   /// 添加一个范围单例服务, 该服务在每个范围内存在一个实例
   ///
   /// [factory] 服务创建方法
-  /// [createUseScope] 是否在创建这个范围单例时创建一个范围，每次获取该服务都将将重新创建，并且创建一个范围，否则，在每个范围内该服务保持单例
-  /// [useScopeBuilder] 当[createUseScope]是true的时候, 创建范围[ServiceProvider]的[ServiceCollection]
   /// [initializeWhenServiceProviderBuilt] 是否在build[ServiceProvider]之后立即初始化
-  void addScopedSingleton<T>(T Function(ServiceProvider serviceProvider) factory, {bool createUseScope = false, void Function(ServiceCollection builder)? useScopeBuilder, bool initializeWhenServiceProviderBuilt = false}) => addServiceDescriptor<T>(
+  void addScopedSingleton<T>(T Function(ServiceProvider serviceProvider) factory, {bool initializeWhenServiceProviderBuilt = false}) => addServiceDescriptor<T>(
         ServiceDescriptor<T>(
           (serviceProvider) => factory(serviceProvider),
           isScopeSingleton: true,
-          createUseScope: createUseScope,
-          useScopeBuilder: useScopeBuilder,
         ),
         initializeWhenServiceProviderBuilt: initializeWhenServiceProviderBuilt,
       );
@@ -55,14 +51,10 @@ class ServiceCollection {
   /// 添加一个服务，每次获取服务都是不同实例
   ///
   /// [factory] 服务创建方法
-  /// [createUseScope] 是否在创建这个范围单例时创建一个范围，这样每次获取该服务都将将重新创建，并且创建一个范围，否则，在每个范围内该服务保持单例
-  /// [useScopeBuilder] 当[createUseScope]是true的时候, 创建范围[ServiceProvider]的[ServiceCollection]
   /// [initializeWhenServiceProviderBuilt] 是否在build[ServiceProvider]之后立即初始化
-  void add<T>(T Function(ServiceProvider serviceProvider) factory, {bool createUseScope = false, void Function(ServiceCollection builder)? useScopeBuilder, bool initializeWhenServiceProviderBuilt = false}) => addServiceDescriptor<T>(
+  void add<T>(T Function(ServiceProvider serviceProvider) factory, {bool initializeWhenServiceProviderBuilt = false}) => addServiceDescriptor<T>(
         ServiceDescriptor<T>(
           (serviceProvider) => factory(serviceProvider),
-          createUseScope: createUseScope,
-          useScopeBuilder: useScopeBuilder,
         ),
         initializeWhenServiceProviderBuilt: initializeWhenServiceProviderBuilt,
       );

@@ -51,23 +51,27 @@ class ServiceProvider {
     // 如果没有找到单例，则需要创建服务
     // 服务所属的[ServiceProvider]为originalProvider，originalProvider为null就是this
     var provider = originalProvider ?? this;
-    // 如果这个服务每次创建都需要创建一个范围，则服务应该属于新创建的范围[ServiceProvider]
-    if (serviceDefinition.createUseScope) {
-      provider = buildScope(builder: serviceDefinition.useScopeBuilder);
-    }
     // 创建服务
     final service = serviceDefinition.factory(provider);
     // 如果服务是 [DependencyInjectionService]类型
     if (service is DependencyInjectionService) {
+      // 单例服务所在的范围永远是定义它的范围
       service._serviceProvider = serviceDefinition.isSingleton ? this : provider;
+      // 初始化服务
       var initResult = service.dependencyInjectionServiceInitialize();
+      // 如果是异步初始化
       if (initResult is Future) {
+        // 设置最近的异步future
         provider._latestServiceInitializeProcess = initResult;
+        // 仅在获取服务后立即等待最近的异步future有效
         scheduleMicrotask(() => provider._latestServiceInitializeProcess = null);
+        // 保存异步future
         _asyncServiceInitializeProcessByType[serviceType] ??= <Future>[];
         _asyncServiceInitializeProcessByType[serviceType]!.add(initResult);
+        // 异步初始化结束后
         initResult.then(
           (value) {
+            // 移除保存的future
             _asyncServiceInitializeProcessByType[serviceType]!.remove(initResult);
             if (_asyncServiceInitializeProcessByType[serviceType]!.isEmpty) {
               _asyncServiceInitializeProcessByType.remove(serviceType);
