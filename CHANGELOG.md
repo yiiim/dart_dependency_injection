@@ -17,3 +17,7 @@
 ## 1.0.1+3
 
 - change collection dependency
+
+## 1.0.1+4
+
+- publish with github action
