@@ -18,8 +18,8 @@ void main() {
       var collection = ServiceCollection();
       collection.add((serviceProvider) => TestService());
       var provider = collection.buildServiceProvider();
-      var scopedProvider1 = provider.buildScope();
-      var scopedProvider2 = provider.buildScope();
+      var scopedProvider1 = provider.buildScoped();
+      var scopedProvider2 = provider.buildScoped();
 
       expect(provider.get<TestService>().hashCode != provider.get<TestService>().hashCode, isTrue);
       expect(scopedProvider1.get<TestService>().hashCode != scopedProvider1.get<TestService>().hashCode, isTrue);
@@ -35,8 +35,8 @@ void main() {
       var collection = ServiceCollection();
       collection.addScopedSingleton((serviceProvider) => TestService());
       var provider = collection.buildServiceProvider();
-      var scopedProvider1 = provider.buildScope();
-      var scopedProvider2 = provider.buildScope();
+      var scopedProvider1 = provider.buildScoped();
+      var scopedProvider2 = provider.buildScoped();
 
       expect(provider.get<TestService>().hashCode == provider.get<TestService>().hashCode, isTrue);
       expect(scopedProvider1.get<TestService>().hashCode == scopedProvider1.get<TestService>().hashCode, isTrue);
@@ -54,8 +54,8 @@ void main() {
       var collection = ServiceCollection();
       collection.addSingleton((serviceProvider) => TestService());
       var provider = collection.buildServiceProvider();
-      var scopedProvider1 = provider.buildScope();
-      var scopedProvider2 = provider.buildScope();
+      var scopedProvider1 = provider.buildScoped();
+      var scopedProvider2 = provider.buildScoped();
 
       expect(provider.get<TestService>().hashCode == provider.get<TestService>().hashCode, isTrue);
       expect(provider.get<TestService>().hashCode == scopedProvider1.get<TestService>().hashCode, isTrue);
@@ -121,7 +121,7 @@ void main() {
           },
       );
       var provider = collection.buildServiceProvider();
-      var scopedProvider = provider.buildScope();
+      var scopedProvider = provider.buildScoped();
       scopedProvider.get<TestService>();
       expect(isInit, isFalse);
       expect(isCopyInit, isFalse);

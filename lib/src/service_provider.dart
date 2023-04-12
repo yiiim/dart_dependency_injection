@@ -169,7 +169,7 @@ class ServiceProvider {
   /// 生成一个范围
   ///
   /// 范围[ServiceProvider]将继承当前[ServiceProvider]的全部服务
-  ServiceProvider buildScope({void Function(ServiceCollection)? builder, Object? scope}) {
+  ServiceProvider buildScoped({void Function(ServiceCollection)? builder, Object? scope}) {
     final scopedBuilder = tryGet<ServiceCollection>() ?? ServiceCollection();
     builder?.call(scopedBuilder);
     return scopedBuilder.buildScopeServiceProvider(this);

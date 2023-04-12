@@ -33,8 +33,8 @@ mixin DependencyInjectionService on Object {
   dynamic tryGetServiceByType(Type type) => serviceProvider.tryGetByType(type);
 
   /// 生成一个范围
-  ServiceProvider buildScopeService<T>({void Function(ServiceCollection)? builder, Object? scope}) {
-    var scopedProvider = serviceProvider.buildScope(builder: builder, scope: scope);
+  ServiceProvider buildScopedProvider<T>({void Function(ServiceCollection)? builder, Object? scope}) {
+    var scopedProvider = serviceProvider.buildScoped(builder: builder, scope: scope);
     _buildScopedServiceProvides.add(scopedProvider);
     return scopedProvider;
   }

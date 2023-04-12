@@ -15,7 +15,7 @@ void main() {
   collection.addScopedSingleton<TestService>((serviceProvider) => TestService());
   var provider = collection.buildServiceProvider();
   var testService = provider.get<TestService>();
-  var scopedServiceProvider = testService.buildScopeService(
+  var scopedServiceProvider = testService.buildScopedProvider(
     builder: (collection) {
       collection.add<TestService>((serviceProvider) => TestService());
     },
