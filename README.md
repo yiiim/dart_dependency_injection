@@ -115,7 +115,7 @@ ServiceProvider buildServiceProvider();
 Build a scoped `ServiceProvider`:
 
 ```dart
-ServiceProvider buildScopeServiceProvider(ServiceProvider parent, {Object? scope});
+ServiceProvider buildScopedServiceProvider(ServiceProvider parent, {Object? scope});
 ```
 
 The `parent` parameter represents the parent of this scoped `ServiceProvider`.
@@ -219,7 +219,7 @@ These methods allow you to **get other dependency-injected services within a ser
 Create a service scope:
 
 ```dart
-ServiceProvider buildScopeService<T>({void Function(ServiceCollection)? builder, Object? scope});
+ServiceProvider buildScopedServiceProvider<T>({void Function(ServiceCollection)? builder, Object? scope});
 ```
 
 This method creates a service scope just like `ServiceProvider`, but you don't have to worry about calling `dispose` on the scope because it will automatically be called when the current service is disposed.

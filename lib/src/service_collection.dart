@@ -62,7 +62,7 @@ class ServiceCollection {
   /// 创建一个[ServiceProvider]，包含[parent]和当前[ServiceCollection]中的服务
   ///
   /// [scope]范围标识
-  ServiceProvider buildScopeServiceProvider(ServiceProvider parent, {Object? scope}) {
+  ServiceProvider buildScopedServiceProvider(ServiceProvider parent, {Object? scope}) {
     var provider = ServiceProvider(
       Map<Type, ServiceDescriptor<dynamic>>.unmodifiable(
         _serviceDescriptor,

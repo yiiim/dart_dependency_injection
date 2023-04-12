@@ -115,7 +115,7 @@ ServiceProvider buildServiceProvider();
 生成一个范围```ServiceProvider```
 
 ```dart
-ServiceProvider buildScopeServiceProvider(ServiceProvider parent, {Object? scope});
+ServiceProvider buildScopedServiceProvider(ServiceProvider parent, {Object? scope});
 ```
 
 **parent** 表示该范围```ServiceProvider```的父级
@@ -179,7 +179,7 @@ ServiceProvider buildScope({void Function(ServiceCollection)? builder, Object? s
 
 ```dart
 var testService = provider.get<TestService>();
-var scopedServiceProvider = testService.buildScopeService(
+var scopedServiceProvider = testService.buildScopedServiceProvider(
     builder: (collection) {
         collection.add<TestService>((serviceProvider) => TestService());
     },
@@ -215,7 +215,7 @@ dynamic tryGetServiceByType(Type type) => serviceProvider.tryGetByType(type);
 创建一个服务范围
 
 ```dart
-ServiceProvider buildScopeService<T>({void Function(ServiceCollection)? builder, Object? scope});
+ServiceProvider buildScopedServiceProvider<T>({void Function(ServiceCollection)? builder, Object? scope});
 ```
 
 和```ServiceProvider```一样，不过你无需担心创建的范围的```dispose```。因为它会在当前服务被dispose后执行。

@@ -25,3 +25,7 @@
 ## 1.0.1+5
 
 - optimization
+
+## 1.0.1+6
+
+- optimization

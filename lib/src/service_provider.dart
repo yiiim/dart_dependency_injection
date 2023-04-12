@@ -172,7 +172,7 @@ class ServiceProvider {
   ServiceProvider buildScoped({void Function(ServiceCollection)? builder, Object? scope}) {
     final scopedBuilder = tryGet<ServiceCollection>() ?? ServiceCollection();
     builder?.call(scopedBuilder);
-    return scopedBuilder.buildScopeServiceProvider(this);
+    return scopedBuilder.buildScopedServiceProvider(this);
   }
 
   /// 释放
