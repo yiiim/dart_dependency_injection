@@ -29,3 +29,7 @@
 ## 1.0.1+6
 
 - optimization
+
+## 1.0.1+8
+
+- fix bugs
