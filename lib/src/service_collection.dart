@@ -24,7 +24,7 @@ class ServiceCollection {
 
     _serviceDescriptor.putIfAbsent(T, () => serviceDescriptor);
     if (initializeWhenServiceProviderBuilt) {
-      _initializeWhenProviderBuilt.putIfAbsent(T, () => serviceDescriptor);
+      _initializeWhenProviderBuilt[T] = serviceDescriptor;
     }
   }
 
