@@ -23,6 +23,7 @@ class ServiceCollection {
     }
 
     _serviceDescriptor.putIfAbsent(T, () => serviceDescriptor);
+    _initializeWhenProviderBuilt.remove(T);
     if (initializeWhenServiceProviderBuilt) {
       _initializeWhenProviderBuilt[T] = serviceDescriptor;
     }
