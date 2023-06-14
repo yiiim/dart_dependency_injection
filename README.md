@@ -107,7 +107,7 @@ The `initializeWhenServiceProviderBuilt` parameter in the above methods represen
 Build a top-level `ServiceProvider`:
 
 ```dart
-ServiceProvider buildServiceProvider();
+ServiceProvider build();
 ```
 
 ---
@@ -115,7 +115,7 @@ ServiceProvider buildServiceProvider();
 Build a scoped `ServiceProvider`:
 
 ```dart
-ServiceProvider buildScopedServiceProvider(ServiceProvider parent, {Object? scope});
+ServiceProvider buildScoped(ServiceProvider parent, {Object? scope});
 ```
 
 The `parent` parameter represents the parent of this scoped `ServiceProvider`.

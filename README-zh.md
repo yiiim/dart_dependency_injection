@@ -107,7 +107,7 @@ void add<T>(T Function(ServiceProvider serviceProvider) factory, {bool initializ
 生成一个顶级的```ServiceProvider```
 
 ```dart
-ServiceProvider buildServiceProvider();
+ServiceProvider build();
 ```
 
 ---
@@ -115,7 +115,7 @@ ServiceProvider buildServiceProvider();
 生成一个范围```ServiceProvider```
 
 ```dart
-ServiceProvider buildScopedServiceProvider(ServiceProvider parent, {Object? scope});
+ServiceProvider buildScoped(ServiceProvider parent, {Object? scope});
 ```
 
 **parent** 表示该范围```ServiceProvider```的父级

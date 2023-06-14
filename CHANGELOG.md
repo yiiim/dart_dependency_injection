@@ -33,3 +33,7 @@
 ## 1.0.1+8
 
 - fix bugs
+
+## 1.0.1+10
+
+- Rename buildScopedServiceProvider so ServiceCollection can with DependencyInjectionService

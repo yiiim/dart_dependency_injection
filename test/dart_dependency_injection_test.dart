@@ -17,7 +17,7 @@ void main() {
     () {
       var collection = ServiceCollection();
       collection.add((serviceProvider) => TestService());
-      var provider = collection.buildServiceProvider();
+      var provider = collection.build();
       var scopedProvider1 = provider.buildScoped();
       var scopedProvider2 = provider.buildScoped();
 
@@ -34,7 +34,7 @@ void main() {
     () {
       var collection = ServiceCollection();
       collection.addScopedSingleton((serviceProvider) => TestService());
-      var provider = collection.buildServiceProvider();
+      var provider = collection.build();
       var scopedProvider1 = provider.buildScoped();
       var scopedProvider2 = provider.buildScoped();
 
@@ -53,7 +53,7 @@ void main() {
     () {
       var collection = ServiceCollection();
       collection.addSingleton((serviceProvider) => TestService());
-      var provider = collection.buildServiceProvider();
+      var provider = collection.build();
       var scopedProvider1 = provider.buildScoped();
       var scopedProvider2 = provider.buildScoped();
 
@@ -74,7 +74,7 @@ void main() {
             isInit = true;
           },
       );
-      var provider = collection.buildServiceProvider();
+      var provider = collection.build();
       provider.get<TestService>();
       expect(isInit, isTrue);
     },
@@ -92,7 +92,7 @@ void main() {
             isInit = true;
           },
       );
-      var provider = collection.buildServiceProvider();
+      var provider = collection.build();
       provider.get<TestService>();
       expect(isInit, isFalse);
       await provider.waitLatestServiceInitialize();
@@ -120,7 +120,7 @@ void main() {
             isCopyInit = true;
           },
       );
-      var provider = collection.buildServiceProvider();
+      var provider = collection.build();
       var scopedProvider = provider.buildScoped();
       scopedProvider.get<TestService>();
       expect(isInit, isFalse);
