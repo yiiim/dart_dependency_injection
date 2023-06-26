@@ -2,10 +2,15 @@ import 'dart:async';
 
 import 'package:dart_dependency_injection/dart_dependency_injection.dart';
 
+class Test1Service {}
+
 class TestService with DependencyInjectionService {
-  FutureOr Function(TestService service)? dependencyInjectionServiceInitializeFunction;
+  late final Test1Service testService1;
   @override
-  FutureOr dependencyInjectionServiceInitialize() => dependencyInjectionServiceInitializeFunction?.call(this);
+  FutureOr dependencyInjectionServiceInitialize() {
+    testService1 = getService<Test1Service>();
+    print("TestService Init");
+  }
 }
 
 void main() {

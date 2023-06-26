@@ -167,6 +167,20 @@ FutureOr waitLatestServiceInitialize();
 FutureOr waitServicesInitialize();
 ```
 
+如下所示
+
+```dart
+class TestService with DependencyInjectionService {
+  late final Test1Service testService1;
+  @override
+  FutureOr dependencyInjectionServiceInitialize() async {
+    testService1 = getService<Test1Service>();
+    await waitLatestServiceInitialize();  // 等待Test1Service初始化完成
+    print("TestService Init");
+  }
+}
+```
+
 ### 范围
 
 通过以下方法可以从当前```ServiceProvider```派生出一个范围，
@@ -208,7 +222,20 @@ dynamic getServiceByType(Type type) => serviceProvider.getByType(type);
 dynamic tryGetServiceByType(Type type) => serviceProvider.tryGetByType(type);
 ```
 
-和```ServiceProvider```一样，一套获取服务的方法。也就是说，你可以**在由依赖注入创建的服务中获取其他的依赖注入的服务**。
+和```ServiceProvider```一样，获取服务的方法。也就是说，你可以**在由依赖注入创建的服务中获取其他的依赖注入的服务**。
+
+如下所示：
+
+```dart
+class TestService with DependencyInjectionService {
+  late final Test1Service testService1;
+  @override
+  FutureOr dependencyInjectionServiceInitialize() {
+    testService1 = getService<Test1Service>();
+    print("TestService Init");
+  }
+}
+```
 
 ---
 
