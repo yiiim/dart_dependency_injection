@@ -34,7 +34,7 @@ mixin DependencyInjectionService on Object {
 
   /// 生成一个范围
   ServiceProvider buildScopedServiceProvider<T>({void Function(ServiceCollection)? builder, Object? scope}) {
-    var scopedProvider = serviceProvider.buildScoped(builder: builder, scope: scope);
+    var scopedProvider = serviceProvider.buildScoped(builder: builder, scope: _DependencyInjectionServiceScope(createByService: this, scope: scope));
     _buildScopedServiceProvides.add(scopedProvider);
     return scopedProvider;
   }
@@ -51,7 +51,9 @@ mixin DependencyInjectionService on Object {
   /// 当所在的[ServiceProvider]被释放时执行
   void dispose() {
     _hasBeenDispose = true;
-    for (var element in _buildScopedServiceProvides) {
+    final List<ServiceProvider> buildScopedServiceProvides = List<ServiceProvider>.of(_buildScopedServiceProvides);
+    _buildScopedServiceProvides.clear();
+    for (var element in buildScopedServiceProvides) {
       element.dispose();
     }
   }

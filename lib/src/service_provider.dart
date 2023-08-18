@@ -1,15 +1,32 @@
 part of './dart_dependency_injection.dart';
 
+class _DependencyInjectionServiceScope {
+  _DependencyInjectionServiceScope({
+    required this.createByService,
+    this.scope,
+  });
+  final Object? scope;
+  final DependencyInjectionService createByService;
+}
+
 /// 服务提供器
 class ServiceProvider {
   ServiceProvider(
     this._serviceDescriptors, {
     this.parent,
-    this.scope,
-  });
+    Object? scope,
+  }) {
+    _scope = scope;
+  }
 
   /// 范围标签
-  final Object? scope;
+  Object? _scope;
+  Object? get scope {
+    if (_scope is _DependencyInjectionServiceScope) {
+      return (_scope as _DependencyInjectionServiceScope).scope;
+    }
+    return _scope;
+  }
 
   /// 父级，如果不是空，表示这个是一个范围
   final ServiceProvider? parent;
@@ -26,7 +43,7 @@ class ServiceProvider {
   /// 存储的单例
   final Map<Type, Object> _singletons = {};
 
-  /// 存储的单例
+  /// 生成的子范围
   final List<ServiceProvider> _scopeds = [];
 
   /// 根据[ServiceDescriptor]获取服务
@@ -172,21 +189,32 @@ class ServiceProvider {
   ServiceProvider buildScoped({void Function(ServiceCollection)? builder, Object? scope}) {
     final scopedBuilder = tryGet<ServiceCollection>() ?? ServiceCollection();
     builder?.call(scopedBuilder);
-    return scopedBuilder.buildScoped(this);
+    return scopedBuilder.buildScoped(this, scope: scope);
   }
 
   /// 释放
   void dispose() {
-    for (final element in _singletons.values) {
+    // 释放单例
+    var singletons = Map.of(_singletons);
+    _singletons.clear();
+    for (final element in singletons.values) {
       if (element is DependencyInjectionService) {
         if (element._hasBeenDispose == false) element.dispose();
       }
     }
-    _singletons.clear();
-    for (var element in [..._scopeds]) {
-      _scopeds.remove(element);
+    // 释放范围
+    var scopes = List<ServiceProvider>.of(_scopeds);
+    _scopeds.clear();
+    for (var element in scopes) {
       element.dispose();
     }
+    // 如果是从某一个服务生成的范围，从服务中移除
+    if (_scope is _DependencyInjectionServiceScope) {
+      final diScope = _scope as _DependencyInjectionServiceScope;
+      diScope.createByService._buildScopedServiceProvides.remove(this);
+      _scope = diScope.scope;
+    }
+    // 从父级移除
     parent?._scopeds.remove(this);
   }
 }
