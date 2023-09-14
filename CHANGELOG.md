@@ -1,3 +1,7 @@
+## 1.0.2+1
+
+- ServiceObserver
+
 ## 1.0.1+11
 
 - fix dispose

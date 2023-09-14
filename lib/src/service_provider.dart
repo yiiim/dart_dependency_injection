@@ -58,7 +58,10 @@ class ServiceProvider {
   /// 生成的子范围
   final List<ServiceProvider> _scopeds = [];
 
+  /// 所有服务的观察者
   late final ServiceDescriptor? _everyServicesObservers;
+
+  /// 指定类型服务的观察者
   late final Map<String, ServiceDescriptor> _typedServicesObservers;
 
   /// 根据[ServiceDescriptor]获取服务
@@ -68,11 +71,18 @@ class ServiceProvider {
   /// [originalProvider]如果是从子级执行的，这个是最开始的子级
   dynamic __get(ServiceDescriptor serviceDefinition, Type serviceType, {ServiceProvider? originalProvider}) {
     assert(_serviceDescriptors.values.contains(serviceDefinition));
+    ServiceObserver? observer; // 任意服务的观察者
+    ServiceObserver? typedObserver; // 当前类型的服务的观察者
+    if (_everyServicesObservers != null && serviceType != ServiceObserver) {
+      observer = __get(_everyServicesObservers!, ServiceObserver);
+    }
     var typedServicesObserversDescriptor = _typedServicesObservers["ServiceObserver<$serviceType>"];
-    List<ServiceObserver> observers = [
-      if (_everyServicesObservers != null && serviceType != ServiceObserver) __get(_everyServicesObservers!, ServiceObserver),
-      if (typedServicesObserversDescriptor != null && serviceType != typedServicesObserversDescriptor.serviceType) __get(typedServicesObserversDescriptor, typedServicesObserversDescriptor.serviceType),
-    ];
+    if (typedServicesObserversDescriptor != null && serviceType != typedServicesObserversDescriptor.serviceType) {
+      typedObserver = __get(
+        typedServicesObserversDescriptor,
+        typedServicesObserversDescriptor.serviceType,
+      );
+    }
     // 如果是单例
     if (serviceDefinition.isSingleton) {
       final singletonValue = _singletons[serviceType];
@@ -100,9 +110,9 @@ class ServiceProvider {
     var provider = originalProvider ?? this;
     // 创建服务
     final service = serviceDefinition.factory(provider);
-    for (var element in observers) {
-      element.onServiceCreated(service);
-    }
+    // 执行观察者
+    observer?.onServiceCreated(service);
+    typedObserver?.onServiceCreated(service);
     // 如果服务是 [DependencyInjectionService]类型
     if (service is DependencyInjectionService) {
       var serviceProvider = serviceDefinition.isSingleton ? this : provider;
@@ -110,7 +120,8 @@ class ServiceProvider {
       // 单例服务所在的范围永远是定义它的范围
       service._serviceProvider = serviceProvider;
       // 保存观察者
-      service._dependencyInjectionServiceObservers = observers;
+      service._dependencyInjectionServiceObserver = observer;
+      service._dependencyInjectionServiceTypedObserver = typedObserver;
       // 初始化服务
       var initResult = (service._serviceInitializeFuture ??= service._dependencyInjectionServiceInitialize());
       // 如果是异步初始化
@@ -131,16 +142,16 @@ class ServiceProvider {
               _asyncServiceInitializeProcessByType.remove(serviceType);
             }
             service._serviceInitializeFuture = null;
-            for (var element in observers) {
-              element.onServiceInitializeDone(service);
-            }
+            // 执行观察者
+            observer?.onServiceInitializeDone(service);
+            typedObserver?.onServiceInitializeDone(service);
           },
         );
       }
     } else {
-      for (var element in observers) {
-        element.onServiceInitializeDone(service);
-      }
+      // 执行观察者
+      observer?.onServiceInitializeDone(service);
+      typedObserver?.onServiceInitializeDone(service);
     }
     // 如果是单例，保存到单例
     if (serviceDefinition.isSingleton) {
@@ -234,11 +245,8 @@ class ServiceProvider {
         () {
           if (element is DependencyInjectionService) {
             if (element._hasBeenDispose == false) {
-              if (element._dependencyInjectionServiceObservers != null) {
-                for (var element in element._dependencyInjectionServiceObservers!) {
-                  element.onServiceDispose(element);
-                }
-              }
+              element._dependencyInjectionServiceTypedObserver?.onServiceDispose(element);
+              element._dependencyInjectionServiceObserver?.onServiceDispose(element);
               element.dispose();
             }
           }
