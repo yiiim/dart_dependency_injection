@@ -2,6 +2,23 @@ import 'dart:async';
 
 import 'package:dart_dependency_injection/dart_dependency_injection.dart';
 
+class TestObserver extends ServiceObserver {
+  @override
+  void onServiceCreated(service) {
+    print("$service created");
+  }
+
+  @override
+  void onServiceDispose(service) {
+    print("$service dispose");
+  }
+
+  @override
+  void onServiceInitializeDone(service) {
+    print("$service initialize done");
+  }
+}
+
 class Test1Service {}
 
 class TestService with DependencyInjectionService {
@@ -16,8 +33,8 @@ class TestService with DependencyInjectionService {
 void main() {
   var collection = ServiceCollection();
   collection.add<TestService>((serviceProvider) => TestService());
-  collection.addSingleton<TestService>((serviceProvider) => TestService());
-  collection.addScopedSingleton<TestService>((serviceProvider) => TestService());
+  collection.add<ServiceObserver>((serviceProvider) => TestObserver());
+  collection.addSingleton<Test1Service>((serviceProvider) => Test1Service());
   var provider = collection.build();
   var testService = provider.get<TestService>();
   var scopedServiceProvider = testService.buildScopedServiceProvider(

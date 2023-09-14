@@ -14,9 +14,18 @@ class ServiceProvider {
   ServiceProvider(
     this._serviceDescriptors, {
     this.parent,
+    this.isRecordServiceInitializeDuration = false,
     Object? scope,
   }) {
     _scope = scope;
+    _everyServicesObservers = _serviceDescriptors[ServiceObserver] ?? parent?._everyServicesObservers;
+    Map<String, ServiceDescriptor> typedServicesObservers = Map.of(parent?._typedServicesObservers ?? {});
+    for (var element in _serviceDescriptors.values) {
+      if (element != _everyServicesObservers && element is ServiceDescriptor<ServiceObserver>) {
+        typedServicesObservers[element.serviceType.toString()] = element;
+      }
+    }
+    _typedServicesObservers = typedServicesObservers;
   }
 
   /// 范围标签
@@ -30,6 +39,9 @@ class ServiceProvider {
 
   /// 父级，如果不是空，表示这个是一个范围
   final ServiceProvider? parent;
+
+  /// 是否需要记录服务初始化时间
+  final bool isRecordServiceInitializeDuration;
 
   /// 全部的服务描述
   final Map<Type, ServiceDescriptor> _serviceDescriptors;
@@ -46,13 +58,21 @@ class ServiceProvider {
   /// 生成的子范围
   final List<ServiceProvider> _scopeds = [];
 
+  late final ServiceDescriptor? _everyServicesObservers;
+  late final Map<String, ServiceDescriptor> _typedServicesObservers;
+
   /// 根据[ServiceDescriptor]获取服务
   ///
   /// [ServiceDescriptor]服务描述
   /// [serviceType]服务类型
   /// [originalProvider]如果是从子级执行的，这个是最开始的子级
-  dynamic __get<T extends Object>(ServiceDescriptor serviceDefinition, Type serviceType, {ServiceProvider? originalProvider}) {
+  dynamic __get(ServiceDescriptor serviceDefinition, Type serviceType, {ServiceProvider? originalProvider}) {
     assert(_serviceDescriptors.values.contains(serviceDefinition));
+    var typedServicesObserversDescriptor = _typedServicesObservers["ServiceObserver<$serviceType>"];
+    List<ServiceObserver> observers = [
+      if (_everyServicesObservers != null && serviceType != ServiceObserver) __get(_everyServicesObservers!, ServiceObserver),
+      if (typedServicesObserversDescriptor != null && serviceType != typedServicesObserversDescriptor.serviceType) __get(typedServicesObserversDescriptor, typedServicesObserversDescriptor.serviceType),
+    ];
     // 如果是单例
     if (serviceDefinition.isSingleton) {
       final singletonValue = _singletons[serviceType];
@@ -80,12 +100,17 @@ class ServiceProvider {
     var provider = originalProvider ?? this;
     // 创建服务
     final service = serviceDefinition.factory(provider);
+    for (var element in observers) {
+      element.onServiceCreated(service);
+    }
     // 如果服务是 [DependencyInjectionService]类型
     if (service is DependencyInjectionService) {
       var serviceProvider = serviceDefinition.isSingleton ? this : provider;
       assert(service._serviceProvider == null || service._serviceProvider == serviceProvider, "Don't inject the same service instance into multiple scopes");
       // 单例服务所在的范围永远是定义它的范围
       service._serviceProvider = serviceProvider;
+      // 保存观察者
+      service._dependencyInjectionServiceObservers = observers;
       // 初始化服务
       var initResult = (service._serviceInitializeFuture ??= service._dependencyInjectionServiceInitialize());
       // 如果是异步初始化
@@ -106,8 +131,15 @@ class ServiceProvider {
               _asyncServiceInitializeProcessByType.remove(serviceType);
             }
             service._serviceInitializeFuture = null;
+            for (var element in observers) {
+              element.onServiceInitializeDone(service);
+            }
           },
         );
+      }
+    } else {
+      for (var element in observers) {
+        element.onServiceInitializeDone(service);
       }
     }
     // 如果是单例，保存到单例
@@ -198,9 +230,20 @@ class ServiceProvider {
     var singletons = Map.of(_singletons);
     _singletons.clear();
     for (final element in singletons.values) {
-      if (element is DependencyInjectionService) {
-        if (element._hasBeenDispose == false) element.dispose();
-      }
+      Future(
+        () {
+          if (element is DependencyInjectionService) {
+            if (element._hasBeenDispose == false) {
+              if (element._dependencyInjectionServiceObservers != null) {
+                for (var element in element._dependencyInjectionServiceObservers!) {
+                  element.onServiceDispose(element);
+                }
+              }
+              element.dispose();
+            }
+          }
+        },
+      );
     }
     // 释放范围
     var scopes = List<ServiceProvider>.of(_scopeds);

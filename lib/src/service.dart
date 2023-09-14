@@ -3,6 +3,7 @@ part of './dart_dependency_injection.dart';
 /// 可以将这个类混入由依赖注入生成的服务
 mixin DependencyInjectionService on Object {
   bool _isInitDependencyInjectionService = false;
+  List<ServiceObserver>? _dependencyInjectionServiceObservers;
   FutureOr? _serviceInitializeFuture;
   ServiceProvider? _serviceProvider;
   ServiceProvider get serviceProvider {
