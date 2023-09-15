@@ -65,7 +65,7 @@ class ServiceCollection {
   /// [scope]范围标识
   ServiceProvider buildScoped(ServiceProvider parent, {Object? scope}) {
     var provider = ServiceProvider(
-      Map<Type, ServiceDescriptor<dynamic>>.unmodifiable(
+      Map<Type, ServiceDescriptor>.unmodifiable(
         _serviceDescriptor,
       ),
       parent: parent,
@@ -81,7 +81,7 @@ class ServiceCollection {
   /// 创建一个[ServiceProvider],包含当前[ServiceCollection]中的服务
   ServiceProvider build() {
     var provider = ServiceProvider(
-      Map<Type, ServiceDescriptor<dynamic>>.unmodifiable(
+      Map<Type, ServiceDescriptor>.unmodifiable(
         _serviceDescriptor,
       ),
     );

@@ -19,4 +19,15 @@ class ServiceDescriptor<T> {
 
   /// 服务类型
   Type get serviceType => T;
+
+  /// [descriptor]是否是当前服务的观察者
+  bool isObserver(ServiceDescriptor descriptor) {
+    var instance = descriptor.createTempObserverInstance();
+    var result = instance is ServiceDescriptor<T>;
+    return result;
+  }
+
+  ServiceDescriptor<ServiceObserver> createTempObserverInstance() {
+    return ServiceDescriptor<ServiceObserver<T>>((_) => ServiceObserver<T>());
+  }
 }
