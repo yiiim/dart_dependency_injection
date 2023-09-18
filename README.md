@@ -4,13 +4,13 @@ This library is inspired by [ioc_container](https://github.com/MelbourneDevelope
 
 ## Getting Started
 
-Create a service collection:
+Create a `ServiceCollection`:
 
 ```dart
 var collection = ServiceCollection();
 ```
 
-Add services to the service collection:
+Add services to the `ServiceCollection`:
 
 ```dart
 // Add a transient service:
@@ -77,6 +77,9 @@ var collection = ServiceCollection();
 var serviceProvider = ServiceProvider build();
 ```
 
+After building the ServiceProvider, you will no longer be able to add services, but you can build the scope.
+
+
 ### Build a Scope ServiceProvider
 
 ```dart
@@ -91,17 +94,7 @@ var scopedServiceProvider = parentProvider.buildScoped(
 );
 ```
 
-A scope is a collection of services that can be created from a `ServiceProvider` and can be used to create a new `ServiceProvider` with additional services.
-
-The `builder` parameter is used to add additional services to the scope, the new ServiceProvider will inherit all the services of the current ServiceProvider, and the get the scopd service will create a new instance.
-
-### Dispose a ServiceProvider
-
-```dart
-serviceProvider.dispose();
-```
-
-will call the `dispose` method of singleton service and scoped singleton service that with the `DependencyInjectionService`.
+Scoped service providers will inherit all services from the parent and additional services can be added
 
 ## Service Initialization
 
@@ -146,7 +139,7 @@ var provider = collection.build();
 `ServiceObserver` is an interface that can be implemented to observe the creation, initialization, and disposal of services.
 
 ```dart
-abstract class ServiceObserver<T extends Object> {
+abstract class ServiceObserver<T> {
   void onServiceCreated(T service);
   void onServiceInitializeDone(T service);
   void onServiceDispose(T service);
@@ -220,3 +213,19 @@ Since these methods all come from `ServiceProvider`, **you need to pay special a
 1. If the current service is a singleton, its scope is always the one where it was defined.
 
 2. If the current service is a transient or scoped singleton service, its scope is the one where it was created.
+
+### ServiceProvider Dispose
+
+Call the dispose method of `ServiceProvider`. `ServiceProvider` also calls dispose for all services and subscopes within the scope.
+
+### Service Dispose
+
+Any service can call the dispose method itself. After dispose, you will not be able to use any method of DependencyInjectionService. And the scope built using the buildScopedServiceProvider method of DependencyInjectionService will also dispose.
+
+The service's dispose is usually called automatically
+
+for singleton service, Call dispose when defining its scope dispose.
+
+for scoped singleton service, Call dispose when the scope is disposed.
+
+for transient service, Call dispose when the scope is disposed .
