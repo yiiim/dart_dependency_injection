@@ -1,5 +1,26 @@
 part of './dart_dependency_injection.dart';
 
+extension ServiceObserviceListExtension on Iterable<ServiceObserver> {
+  void onServiceCreated(service) {
+    for (var element in this) {
+      element.onServiceCreated(service);
+    }
+  }
+
+  void onServiceInitializeDone(service) {
+    for (var element in this) {
+      element.onServiceInitializeDone(service);
+    }
+  }
+
+  void onServiceDispose(service) {
+    for (var element in this) {
+      element.onServiceDispose(service);
+    }
+  }
+}
+
+/// 服务捆绑包
 class _ServiceBoundle {
   _ServiceBoundle({
     required this.serviceType,
@@ -27,52 +48,51 @@ class _ServiceBoundle {
   /// 服务
   final Object service;
 
-  /// 服务初始化的[Future]
-  FutureOr? _serviceInitializeFuture;
-
+  /// 释放服务包
   void dispose() {
+    // 释放从这个捆绑包中生成的范围
     for (var element in scopedProvider) {
       element.dispose();
     }
-    if (service is DependencyInjectionService) {
-      (service as DependencyInjectionService)._dependencyInjectionServiceDispose();
-    }
+    // 执行观察者
     for (var element in observer) {
       element.onServiceDispose(service);
+    }
+    // 如果服务是 [DependencyInjectionService]类型，将服务从捆绑包中分离
+    if (service is DependencyInjectionService) {
+      (service as DependencyInjectionService)._detachFromBoundle(this);
     }
   }
 }
 
-extension ServiceObserviceListExtension on Iterable<ServiceObserver> {
-  void onServiceCreated(service) {
-    for (var element in this) {
-      element.onServiceCreated(service);
-    }
-  }
-
-  void onServiceInitializeDone(service) {
-    for (var element in this) {
-      element.onServiceInitializeDone(service);
-    }
-  }
-
-  void onServiceDispose(service) {
-    for (var element in this) {
-      element.onServiceDispose(service);
-    }
-  }
+/// 该标签表示这个范围是从某一个服务生成的
+class _BuildFromServiceScope {
+  _BuildFromServiceScope({
+    required this.createByService,
+    this.scope,
+  });
+  final Object? scope;
+  final _ServiceBoundle createByService;
 }
 
 /// 服务提供器
 class ServiceProvider {
-  ServiceProvider(
-    this._serviceDescriptors, {
+  ServiceProvider._(
+    Map<Type, ServiceDescriptor> serviceDescriptors, {
     this.parent,
-    this.scope,
-  }) : _observerServiceDescriptor = _serviceDescriptors.values.whereType<ServiceDescriptor<ServiceObserver>>().toList();
+    Object? scope,
+  })  : _serviceDescriptors = serviceDescriptors,
+        _scope = scope,
+        _observerServiceDescriptor = serviceDescriptors.values.whereType<ServiceDescriptor<ServiceObserver>>().toList();
 
   /// 范围标签
-  final Object? scope;
+  final Object? _scope;
+  Object? get scope {
+    if (_scope is _BuildFromServiceScope) {
+      return (_scope as _BuildFromServiceScope).scope;
+    }
+    return _scope;
+  }
 
   /// 父级，如果不是空，表示这个是一个范围
   final ServiceProvider? parent;
@@ -81,30 +101,28 @@ class ServiceProvider {
   final Map<Type, ServiceDescriptor> _serviceDescriptors;
 
   /// [ServiceProvider]中当前正在执行[DependencyInjectionService.dependencyInjectionServiceInitialize]的[Future]
-  final Map<Type, List<Future>> _asyncServiceInitializeProcessByType = {};
+  late final Map<Type, List<Future>> _asyncServiceInitializeProcessByType = {};
 
   /// [ServiceProvider]最近一个服务执行[DependencyInjectionService.dependencyInjectionServiceInitialize] 的[Future]
   Future? _latestServiceInitializeProcess;
 
-  /// 存储的单例
-  final Map<Type, _ServiceBoundle> _singletons = {};
+  /// 存储的范围单例和单例
+  late final Map<Type, _ServiceBoundle> _singletons = {};
 
   /// 生成的子范围
-  final List<ServiceProvider> _scopeds = [];
+  late final List<ServiceProvider> _scopeds = [];
 
+  /// 全部的观察者服务
   final List<ServiceDescriptor<ServiceObserver>> _observerServiceDescriptor;
-
-  /// 是否有观察者，如果没有观察者，就不需要查找观察者服务，提高性能
-  late final bool _hasObserver;
 
   /// 找到服务的观察者
   ///
   /// [serviceDefinition]服务定义
-  /// [originalProvider]获取服务的provider
-  Iterable<ServiceObserver> _getObservers(ServiceDescriptor serviceDefinition, {ServiceProvider? originalProvider}) {
+  /// [dealScoped]获取服务的范围
+  Iterable<ServiceObserver> _getObservers(ServiceDescriptor serviceDefinition, ServiceProvider dealScoped) {
     assert(_serviceDescriptors.values.contains(serviceDefinition));
     assert(() {
-      ServiceProvider? childProvider = originalProvider ?? this;
+      ServiceProvider? childProvider = dealScoped;
       while (childProvider != null) {
         if (childProvider == this) {
           return true;
@@ -117,10 +135,10 @@ class ServiceProvider {
       // 找到provider中定义的观察者
       var observers = provider._observerServiceDescriptor.where(
         (element) {
-          return element.isObserver(serviceDefinition);
+          return element != serviceDefinition && (element.serviceType == ServiceObserver || serviceDefinition.isObserver(element));
         },
       ).map<ServiceObserver>(
-        (e) => __get(serviceDefinition, e.serviceType),
+        (e) => __get(e, e.serviceType, dealScoped),
       );
       yield* observers;
       // 如果provider不是当前provider，继续向上查找
@@ -130,49 +148,41 @@ class ServiceProvider {
       }
     }
 
-    return findObservers(originalProvider ?? this);
+    return findObservers(dealScoped);
   }
 
   /// 根据[ServiceDescriptor]获取服务
   ///
   /// [ServiceDescriptor]服务描述
   /// [serviceType]服务类型
-  /// [originalProvider]如果是从子级执行的，这个是最开始的子级
-  dynamic __get(ServiceDescriptor serviceDefinition, Type serviceType, {ServiceProvider? originalProvider}) {
+  /// [dealScoped]获取服务的范围
+  dynamic __get(ServiceDescriptor serviceDefinition, Type serviceType, ServiceProvider dealScoped) {
     assert(_serviceDescriptors.values.contains(serviceDefinition));
-
+    _ServiceBoundle? singletonValue;
     // 如果是单例
     if (serviceDefinition.isSingleton) {
-      final singletonValue = _singletons[serviceType];
-      if (singletonValue != null) {
-        // 如果这个服务还在初始化
-        _latestServiceInitializeProcess = _asyncServiceInitializeProcessByType[serviceType]?.firstOrNull;
-        scheduleMicrotask(() => _latestServiceInitializeProcess = null);
-        return singletonValue.service;
-      }
+      singletonValue = _singletons[serviceType];
     }
     // 如果是范围单例，并且当前不是原始[ServiceProvider],从原始提供者找单例
     if (serviceDefinition.isScopeSingleton) {
-      var provider = (originalProvider ?? this);
-      final singletonValue = provider._singletons[serviceType];
-      if (singletonValue != null) {
-        // 如果这个服务还在初始化
-        provider._latestServiceInitializeProcess = provider._asyncServiceInitializeProcessByType[serviceType]?.firstOrNull;
-        scheduleMicrotask(() => provider._latestServiceInitializeProcess = null);
-        return singletonValue.service;
-      }
+      singletonValue = dealScoped._singletons[serviceType];
+    }
+    // 如果是单例，返回单例
+    if (singletonValue != null) {
+      // 如果这个服务还在初始化
+      dealScoped._latestServiceInitializeProcess = dealScoped._asyncServiceInitializeProcessByType[serviceType]?.firstOrNull;
+      scheduleMicrotask(() => dealScoped._latestServiceInitializeProcess = null);
+      return singletonValue.service;
     }
 
     // 如果没有找到单例，则需要创建服务
-    // 服务所属的[ServiceProvider]为originalProvider，originalProvider为null就是this
-    var provider = originalProvider ?? this;
     // 创建服务
-    final service = serviceDefinition.factory(provider);
+    final service = serviceDefinition.factory(dealScoped);
     // 观察者
-    var observers = _getObservers(serviceDefinition, originalProvider: originalProvider).toList();
+    var observers = _getObservers(serviceDefinition, dealScoped).toList();
     // boundle
     var boundle = _ServiceBoundle(
-      scoped: serviceDefinition.isSingleton ? this : provider,
+      scoped: serviceDefinition.isSingleton ? this : dealScoped,
       service: service,
       serviceDefinition: serviceDefinition,
       serviceType: serviceType,
@@ -182,16 +192,14 @@ class ServiceProvider {
     observers.onServiceCreated(service);
     // 如果服务是 [DependencyInjectionService]类型
     if (service is DependencyInjectionService) {
-      // 设置服务的boundle
-      service._attachToBoundle(boundle);
-      // 初始化服务
-      var initResult = (boundle._serviceInitializeFuture ??= service._dependencyInjectionServiceInitialize());
+      // 设置服务的boundle, 初始化服务
+      var initResult = service._attachToBoundle(boundle);
       // 如果是异步初始化
       if (initResult is Future) {
         // 设置最近的异步future
-        provider._latestServiceInitializeProcess = initResult;
+        dealScoped._latestServiceInitializeProcess = initResult;
         // 仅在获取服务后立即等待最近的异步future有效
-        scheduleMicrotask(() => provider._latestServiceInitializeProcess = null);
+        scheduleMicrotask(() => dealScoped._latestServiceInitializeProcess = null);
         // 保存异步future
         _asyncServiceInitializeProcessByType[serviceType] ??= <Future>[];
         _asyncServiceInitializeProcessByType[serviceType]!.add(initResult);
@@ -203,7 +211,6 @@ class ServiceProvider {
             if (_asyncServiceInitializeProcessByType[serviceType]!.isEmpty) {
               _asyncServiceInitializeProcessByType.remove(serviceType);
             }
-            boundle._serviceInitializeFuture = null;
             // 执行观察者
             observers.onServiceInitializeDone(service);
           },
@@ -211,16 +218,13 @@ class ServiceProvider {
       } else {
         observers.onServiceInitializeDone(service);
       }
-    } else {
-      observers.onServiceInitializeDone(service);
     }
 
-    if /*如果是单例，保存到单例*/ (serviceDefinition.isSingleton) {
+    if /*如果是单例，保存到自己的单例*/ (serviceDefinition.isSingleton) {
       _singletons[serviceType] = boundle;
-      service;
-    } else if /*如果是范围单例，保存到所属的[ServiceProvider]单例*/ (serviceDefinition.isScopeSingleton) {
-      provider._singletons[serviceType] = boundle;
-    } else {
+    } else if /*如果是范围单例，保存到获取服务的范围的单例中*/ (serviceDefinition.isScopeSingleton) {
+      dealScoped._singletons[serviceType] = boundle;
+    } else /*普通服务下一次循环直接释放*/ {
       Future(() => boundle.dispose());
     }
     return service;
@@ -228,14 +232,14 @@ class ServiceProvider {
 
   /// 获取服务
   ///
-  /// [originalProvider]如果是从子级执行的，这个是最开始的子级
-  dynamic _get(Type serviceType, {ServiceProvider? originalProvider}) {
+  /// [dealScoped]获取服务的范围
+  dynamic _get(Type serviceType, {ServiceProvider? dealScoped}) {
     final serviceDefinition = _serviceDescriptors[serviceType];
     if (serviceDefinition == null) {
-      var service = parent?._get(serviceType, originalProvider: originalProvider ?? this);
+      var service = parent?._get(serviceType, dealScoped: dealScoped ?? this);
       return service;
     }
-    return __get(serviceDefinition, serviceType, originalProvider: originalProvider);
+    return __get(serviceDefinition, serviceType, dealScoped ?? this);
   }
 
   /// 获取服务
@@ -291,14 +295,10 @@ class ServiceProvider {
   /// 生成一个范围
   ///
   /// 范围[ServiceProvider]将继承当前[ServiceProvider]的全部服务
-  ServiceProvider buildScoped({void Function(ServiceCollection)? builder, Object? scope, _ServiceBoundle? boundle}) {
+  ServiceProvider buildScoped({void Function(ServiceCollection)? builder, Object? scope}) {
     final scopedBuilder = tryGet<ServiceCollection>() ?? ServiceCollection();
     builder?.call(scopedBuilder);
-    var serviceProvider = scopedBuilder.buildScoped(this, scope: scope);
-    if (boundle != null) {
-      boundle.scopedProvider.add(serviceProvider);
-    }
-    return serviceProvider;
+    return scopedBuilder.buildScoped(this, scope: scope);
   }
 
   /// 释放
@@ -309,7 +309,11 @@ class ServiceProvider {
     for (final element in singletons.values) {
       element.dispose();
     }
-    // 释放范围
+    // 如果是从某一个服务生成的范围，从服务中移除
+    if (_scope is _BuildFromServiceScope) {
+      (_scope as _BuildFromServiceScope).createByService.scopedProvider.remove(this);
+    }
+    // 释放子范围
     var scopes = List<ServiceProvider>.of(_scopeds);
     _scopeds.clear();
     for (var element in scopes) {

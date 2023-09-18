@@ -64,29 +64,29 @@ class ServiceCollection {
   ///
   /// [scope]范围标识
   ServiceProvider buildScoped(ServiceProvider parent, {Object? scope}) {
-    var provider = ServiceProvider(
+    var provider = ServiceProvider._(
       Map<Type, ServiceDescriptor>.unmodifiable(
         _serviceDescriptor,
       ),
       parent: parent,
       scope: scope,
     );
-    for (var element in _initializeWhenProviderBuilt.keys) {
-      provider.__get(_initializeWhenProviderBuilt[element]!, element);
-    }
     parent._scopeds.add(provider);
+    for (var element in _initializeWhenProviderBuilt.keys) {
+      provider.__get(_initializeWhenProviderBuilt[element]!, element, provider);
+    }
     return provider;
   }
 
   /// 创建一个[ServiceProvider],包含当前[ServiceCollection]中的服务
   ServiceProvider build() {
-    var provider = ServiceProvider(
+    var provider = ServiceProvider._(
       Map<Type, ServiceDescriptor>.unmodifiable(
         _serviceDescriptor,
       ),
     );
     for (var element in _initializeWhenProviderBuilt.keys) {
-      provider.__get(_initializeWhenProviderBuilt[element]!, element);
+      provider.__get(_initializeWhenProviderBuilt[element]!, element, provider);
     }
     return provider;
   }

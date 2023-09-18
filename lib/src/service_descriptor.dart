@@ -2,7 +2,7 @@ part of './dart_dependency_injection.dart';
 
 /// 服务描述
 class ServiceDescriptor<T> {
-  const ServiceDescriptor(
+  ServiceDescriptor(
     this.factory, {
     this.isSingleton = false,
     this.isScopeSingleton = false,
@@ -20,14 +20,16 @@ class ServiceDescriptor<T> {
   /// 服务类型
   Type get serviceType => T;
 
-  /// [descriptor]是否是当前服务的观察者
+  /// 传入的[descriptor]服务是否可以观察当前服务
   bool isObserver(ServiceDescriptor descriptor) {
-    var instance = descriptor.createTempObserverInstance();
-    var result = instance is ServiceDescriptor<T>;
-    return result;
+    return descriptor is ServiceDescriptor<ServiceObserver<T>>;
   }
 
-  ServiceDescriptor<ServiceObserver> createTempObserverInstance() {
-    return ServiceDescriptor<ServiceObserver<T>>((_) => ServiceObserver<T>());
-  }
+  /// 当前服务是否是[ServiceObserver]，并且是否可以观察[descriptor]服务
+  // bool canObserver(ServiceDescriptor descriptor) {
+  //   // return descriptor._observerDescriptorInstance is ServiceDescriptor<T>;
+  // }
+
+  // static ServiceObserver<T> _constServerObserverFactory<T>(ServiceProvider _) => throw "";
+  // late final ServiceDescriptor<ServiceObserver> _observerDescriptorInstance = ServiceDescriptor<ServiceObserver<T>>(_constServerObserverFactory);
 }

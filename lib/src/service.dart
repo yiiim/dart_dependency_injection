@@ -2,39 +2,51 @@ part of './dart_dependency_injection.dart';
 
 /// 可以将这个类混入由依赖注入生成的服务
 mixin DependencyInjectionService on Object {
-  late final List<WeakReference<_ServiceBoundle>> _boundles = [];
-  WeakReference<_ServiceBoundle>? _boundle;
+  late final List<_ServiceBoundle> _boundles = [];
+  _ServiceBoundle? _boundle;
+  FutureOr? _initializeResult;
 
-  void _attachToBoundle(_ServiceBoundle boundle) {
-    assert(_boundle?.target?.scoped == null || _boundle?.target?.scoped == boundle.scoped, "Don't inject the same service instance into multiple scopes");
-    if (_boundle?.target != null) {
-      _boundles.add(_boundle!);
+  FutureOr _attachToBoundle(_ServiceBoundle boundle) {
+    assert(() {
+      if (_boundle?.scoped != null || _boundle?.scoped != boundle.scoped) {
+        print("Warning ！！ Don't inject the same service instance into multiple scopes，");
+      }
+      return true;
+    }());
+    bool runInitialize = _boundles.isEmpty;
+    _boundles.add(boundle);
+    _boundle = boundle;
+    if (runInitialize) {
+      var initialize = dependencyInjectionServiceInitialize();
+      if (initialize is Future) {
+        initialize.then(
+          (value) {
+            _initializeResult = null;
+          },
+          onError: (error) {
+            _initializeResult = null;
+          },
+        );
+      }
+      _initializeResult = initialize;
     }
-    _boundle = WeakReference(boundle);
+    return _initializeResult;
+  }
+
+  void _detachFromBoundle(_ServiceBoundle boundle) {
+    assert(_boundles.contains(boundle));
+    _boundles.remove(boundle);
+    if (_boundle == boundle) {
+      _boundle = _boundles.lastOrNull;
+    }
+    if (_boundles.isEmpty) {
+      dispose();
+    }
   }
 
   ServiceProvider get serviceProvider {
-    assert(_boundle?.target?.scoped != null, 'this service create not from dependency injection or this service was disposed');
-    return _boundle!.target!.scoped;
-  }
-
-  bool _hasBeelInitialize = false;
-  bool _hasBeenDispose = false;
-
-  /// 初始化服务
-  FutureOr _dependencyInjectionServiceInitialize() {
-    // 同一个实例可能会被用于多个服务类型，避免重复初始化
-    if (_hasBeelInitialize) return null;
-    _hasBeelInitialize = true;
-    return dependencyInjectionServiceInitialize();
-  }
-
-  /// 释放服务
-  void _dependencyInjectionServiceDispose() {
-    // 同一个实例可能会被用于多个服务类型，避免重复Dispose
-    if (_hasBeenDispose) return;
-    _hasBeenDispose = true;
-    dispose();
+    assert(_boundle?.scoped != null, 'this service create not from dependency injection or this service was disposed');
+    return _boundle!.scoped;
   }
 
   /// 获取服务
@@ -51,7 +63,9 @@ mixin DependencyInjectionService on Object {
 
   /// 生成一个范围
   ServiceProvider buildScopedServiceProvider<T>({void Function(ServiceCollection)? builder, Object? scope}) {
-    return serviceProvider.buildScoped(builder: builder, boundle: _boundle?.target);
+    var scopedProvider = serviceProvider.buildScoped(builder: builder, scope: _BuildFromServiceScope(createByService: _boundle!, scope: scope));
+    _boundle?.scopedProvider.add(scopedProvider);
+    return scopedProvider;
   }
 
   /// 初始化服务
