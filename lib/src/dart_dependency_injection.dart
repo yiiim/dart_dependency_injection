@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:collection/collection.dart';
+import 'package:meta/meta.dart';
 
 part 'exception.dart';
 part 'service_descriptor.dart';

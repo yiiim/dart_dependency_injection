@@ -22,12 +22,14 @@ class ServiceDescriptor<T> {
 
   /// 传入的[descriptor]服务是否可以观察当前服务
   bool isObserver(ServiceDescriptor descriptor) {
-    return descriptor is ServiceDescriptor<ServiceObserver<T>>;
+    var result = descriptor.serviceType == ServiceObserver<T>;
+    return result;
   }
 
   /// 当前服务是否是[ServiceObserver]，并且是否可以观察[descriptor]服务
   // bool canObserver(ServiceDescriptor descriptor) {
-  //   // return descriptor._observerDescriptorInstance is ServiceDescriptor<T>;
+  //   var result = descriptor._observerDescriptorInstance is ServiceDescriptor<T>;
+  //   return result;
   // }
 
   // static ServiceObserver<T> _constServerObserverFactory<T>(ServiceProvider _) => throw "";

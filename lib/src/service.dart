@@ -8,7 +8,7 @@ mixin DependencyInjectionService on Object {
 
   FutureOr _attachToBoundle(_ServiceBoundle boundle) {
     assert(() {
-      if (_boundle?.scoped != null || _boundle?.scoped != boundle.scoped) {
+      if (_boundle?.scoped != null && _boundle?.scoped != boundle.scoped) {
         print("Warning ！！ Don't inject the same service instance into multiple scopes，");
       }
       return true;
@@ -40,7 +40,7 @@ mixin DependencyInjectionService on Object {
       _boundle = _boundles.lastOrNull;
     }
     if (_boundles.isEmpty) {
-      dispose();
+      _dispose();
     }
   }
 
@@ -77,6 +77,28 @@ mixin DependencyInjectionService on Object {
   /// 等待当前全部正在初始化的服务完成
   FutureOr waitServicesInitialize() => serviceProvider.waitServicesInitialize();
 
+  bool _disposed = false;
+
+  /// dispose当前服务
+  ///
+  /// [fromUser] 是否是用户主动调用的dispose
+  void _dispose({bool fromUser = false}) {
+    if (_disposed) return;
+    _disposed = true;
+
+    if (fromUser) {
+      assert(_boundle != null, 'this service create not from dependency injection or this service was disposed');
+      for (var element in List.of(_boundles)) {
+        element.dispose();
+      }
+    } else {
+      dispose();
+    }
+  }
+
   /// 当所在的[ServiceProvider]被释放时执行
-  void dispose() {}
+  @mustCallSuper
+  void dispose() {
+    _dispose(fromUser: true);
+  }
 }
