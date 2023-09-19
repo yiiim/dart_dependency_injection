@@ -67,7 +67,7 @@ class _ServiceBoundle {
   }
 
   /// 释放服务包
-  void dispose() {
+  void dispose({bool disposeByServiceProvider = false}) {
     // 释放从这个捆绑包中生成的范围
     for (var element in scopedProvider) {
       element.dispose();
@@ -85,17 +85,19 @@ class _ServiceBoundle {
     }
     // 从所属范围中移除，如果当前服务是在范围释放时释放的，通常不需要这么做
     // 但是如果服务是自主释放的，则需要从范围中移除
-    if (serviceDefinition.isSingleton) {
-      scoped._singletons[serviceType] = null;
-    } else if (serviceDefinition.isScopeSingleton) {
-      scoped._scopedSingletons[serviceType] = null;
-    } else {
-      if (scoped._normalServices.isNotEmpty) {
-        assert(scoped._normalServices[serviceType]!.contains(this));
-        var normalServices = scoped._normalServices[serviceType];
-        normalServices?.remove(this);
-        if (normalServices?.isEmpty == true) {
-          scoped._normalServices.remove(serviceType);
+    if (!disposeByServiceProvider) {
+      if (serviceDefinition.isSingleton) {
+        scoped._singletons[serviceType] = null;
+      } else if (serviceDefinition.isScopeSingleton) {
+        scoped._scopedSingletons[serviceType] = null;
+      } else {
+        if (scoped._transientServices.isNotEmpty) {
+          assert(scoped._transientServices[serviceType]!.contains(this));
+          var transientServices = scoped._transientServices[serviceType];
+          transientServices?.remove(this);
+          if (transientServices?.isEmpty == true) {
+            scoped._transientServices.remove(serviceType);
+          }
         }
       }
     }
@@ -150,7 +152,7 @@ class ServiceProvider {
   late final Map<Type, _ServiceBoundle?> _scopedSingletons = {};
 
   /// 储存的普通服务
-  late final Map<Type, List<_ServiceBoundle>> _normalServices = {};
+  late final Map<Type, List<_ServiceBoundle>> _transientServices = {};
 
   /// 生成的子范围
   late final List<ServiceProvider> _scopeds = [];
@@ -158,6 +160,7 @@ class ServiceProvider {
   /// 全部的观察者服务
   final List<ServiceDescriptor<ServiceObserver>> _observerServiceDescriptor;
 
+  /// 供单元测试用，获取已经存在的单例
   @visibleForTesting
   Object? getExistSingleton(Type serviceType) {
     if (_singletons.containsKey(serviceType)) {
@@ -166,14 +169,16 @@ class ServiceProvider {
     return parent?.getExistSingleton(serviceType);
   }
 
+  /// 供单元测试用，获取已经存在的范围单例
   @visibleForTesting
   Object? getExistScopedSingleton(Type serviceType) {
     return _scopedSingletons[serviceType];
   }
 
+  /// 供单元测试用，获取已经存在的普通服务
   @visibleForTesting
-  List<Object>? getExistNormal(Type serviceType) {
-    return _normalServices[serviceType];
+  List<Object>? getExistTransient(Type serviceType) {
+    return _transientServices[serviceType];
   }
 
   /// 找到服务的观察者
@@ -293,8 +298,8 @@ class ServiceProvider {
     } else if /*如果是范围单例，保存到获取服务的范围的单例中*/ (serviceDefinition.isScopeSingleton) {
       serviceScope._scopedSingletons[serviceType] = boundle;
     } else /*普通服务保存到获取服务的范围中*/ {
-      serviceScope._normalServices[serviceType] ??= [];
-      serviceScope._normalServices[serviceType]!.add(boundle);
+      serviceScope._transientServices[serviceType] ??= [];
+      serviceScope._transientServices[serviceType]!.add(boundle);
     }
     return service;
   }
@@ -373,23 +378,21 @@ class ServiceProvider {
   /// 释放
   void dispose() {
     // 释放单例
-    var singletons = Map.of(_singletons);
-    for (final element in singletons.keys) {
-      singletons[element]?.dispose();
-      singletons[element] = null;
+    for (final element in _singletons.keys) {
+      _singletons[element]?.dispose(disposeByServiceProvider: true);
+      _singletons[element] = null;
     }
     // 释放范围单例
-    var scopedSingletons = Map.of(_scopedSingletons);
-    for (final element in scopedSingletons.keys) {
-      scopedSingletons[element]?.dispose();
-      scopedSingletons[element] = null;
+    for (final element in _scopedSingletons.keys) {
+      _scopedSingletons[element]?.dispose(disposeByServiceProvider: true);
+      _scopedSingletons[element] = null;
     }
     // 释放普通服务
-    var normalServices = Map.of(_normalServices);
-    _normalServices.clear();
-    for (final element in normalServices.values) {
+    var transientServices = Map.of(_transientServices);
+    _transientServices.clear();
+    for (final element in transientServices.values) {
       for (final element2 in element) {
-        element2.dispose();
+        element2.dispose(disposeByServiceProvider: true);
       }
     }
     // 如果是从某一个服务生成的范围，从服务中移除

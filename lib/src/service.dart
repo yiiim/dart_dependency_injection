@@ -94,6 +94,7 @@ mixin DependencyInjectionService on Object {
     } else {
       dispose();
     }
+    assert(_boundles.isEmpty);
   }
 
   /// 当所在的[ServiceProvider]被释放时执行

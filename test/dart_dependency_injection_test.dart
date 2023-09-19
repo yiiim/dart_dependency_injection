@@ -269,13 +269,13 @@ void main() {
       var provider = collection.build();
       var scopedProvider = provider.buildScoped();
       scopedProvider.get<TestService>();
-      expect(scopedProvider.getExistNormal(TestService)?.isNotEmpty, isTrue);
+      expect(scopedProvider.getExistTransient(TestService)?.isNotEmpty, isTrue);
       Future<bool> checkDispose() async {
         // 这是为了测试普通服务被dart回收
         for (var i = 0; i < 1000; i++) {
           await Future.delayed(Duration(milliseconds: 10));
           TestService();
-          if (scopedProvider.getExistNormal(TestService)?.isEmpty ?? true) {
+          if (scopedProvider.getExistTransient(TestService)?.isEmpty ?? true) {
             return true;
           }
         }
@@ -344,10 +344,10 @@ void main() {
 
       var scopedProvider = provider.buildScoped();
       var normalService = scopedProvider.get<TestService>();
-      expect(scopedProvider.getExistNormal(TestService)?.isNotEmpty, isTrue);
+      expect(scopedProvider.getExistTransient(TestService)?.isNotEmpty, isTrue);
       normalService.dispose();
       expect(isDispose, isTrue);
-      expect((scopedProvider.getExistNormal(TestService)?.isEmpty ?? true), isTrue);
+      expect((scopedProvider.getExistTransient(TestService)?.isEmpty ?? true), isTrue);
     },
   );
 

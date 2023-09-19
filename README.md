@@ -96,6 +96,36 @@ var scopedServiceProvider = parentProvider.buildScoped(
 
 Scoped service providers will inherit all services from the parent and additional services can be added
 
+## Service
+
+### Get service instance
+
+```dart
+TestService testService = provider.get<TestService>();
+// or
+TestService testService = provider.getByType(TestService);
+```
+
+Will throw an exception if the service does not exist
+
+or
+
+```dart
+TestService? testService = provider.tryGet<TestService>();
+// or
+TestService? testService = provider.tryGetType(TestService);
+```
+
+Returns null if the service does not exist
+
+### Service scope
+
+for singleton service, its scope is always the one where it was defined.
+
+for scoped singleton service, its scope is the one where it was created.
+
+for transient service, its scope is the one where it was created.
+
 ## Service Initialization
 
 If the injected service with the `DependencyInjectionService` and overrides the `dependencyInjectionServiceInitialize` method, that method will be executed immediately after creation.
@@ -146,13 +176,15 @@ abstract class ServiceObserver<T> {
 }
 ```
 
-### Add observer for every service 
+### Add observer for every services
 
 ```dart
 var collection = ServiceCollection();
 // ...add some services
 collection.add<ServiceObserver>((serviceProvider) => TestServiceObserver());
 ```
+
+When the service is created, a `ServiceObserver` service will be created to observer this service.
 
 ### Add observer for a service
 
@@ -163,7 +195,6 @@ collection.add<ServiceObserver<TestService>>((serviceProvider) => TestServiceObs
 ```
 
 just only the `TestService` will be observed.
-
 
 ## DependencyInjectionService
 
@@ -181,51 +212,37 @@ dynamic getServiceByType(Type type);
 
 /// Try to get a service by type. Returns null if the service does not exist.
 dynamic tryGetServiceByType(Type type);
-```
 
-These methods allow you to **get other dependency-injected services within a service created by dependency injection** just like with `ServiceProvider`.
+/// Wait for the most recently requested service to initialize. Must be called immediately after getting a service.
+FutureOr waitLatestServiceInitialize();
 
----
+/// Wait for all currently initializing services to finish.
+FutureOr waitServicesInitialize();
 
-Create a service scope:
-
-```dart
+/// Create a scope
 ServiceProvider buildScopedServiceProvider<T>({void Function(ServiceCollection)? builder, Object? scope});
 ```
 
-This method creates a service scope just like `ServiceProvider`, but you don't have to worry about calling `dispose` on the scope because it will automatically be called when the current service is disposed.
-
----
-
-Wait for service initialization:
-
-```dart
-FutureOr waitLatestServiceInitialize();
-FutureOr waitServicesInitialize();
-```
-
-These methods are also from `ServiceProvider`, and allow you to wait for async-initialized services after getting them.
-
----
-
-Since these methods all come from `ServiceProvider`, **you need to pay special attention to the scope of the current service** when using them.
-
-1. If the current service is a singleton, its scope is always the one where it was defined.
-
-2. If the current service is a transient or scoped singleton service, its scope is the one where it was created.
+Use these methods just like using the `ServiceProvider` in **your scope**.
 
 ### ServiceProvider Dispose
 
-Call the dispose method of `ServiceProvider`. `ServiceProvider` also calls dispose for all services and subscopes within the scope.
+Call the dispose method of `ServiceProvider`. `ServiceProvider` also calls dispose for all alive services and all subscopes.
 
 ### Service Dispose
 
 Any service can call the dispose method itself. After dispose, you will not be able to use any method of DependencyInjectionService. And the scope built using the buildScopedServiceProvider method of DependencyInjectionService will also dispose.
 
-The service's dispose is usually called automatically
+The service's dispose is usually called automatically :
 
 for singleton service, Call dispose when defining its scope dispose.
 
 for scoped singleton service, Call dispose when the scope is disposed.
 
-for transient service, Call dispose when the scope is disposed .
+for transient service :
+
+If you don't use it anymore, it may be cleared by GC at any time.
+
+When it is cleared by GC, the ServiceProvider built by its buildScopedServiceProvider method will call dispose.
+
+If it is still alive, it will be called dispose when the ServiceProvider disposes it.
