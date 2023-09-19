@@ -262,7 +262,7 @@ void main() {
   );
 
   test(
-    "test normal service dispose",
+    "test transient service dispose",
     () async {
       var collection = ServiceCollection();
       collection.add<TestService>((serviceProvider) => TestService());
@@ -333,7 +333,7 @@ void main() {
   );
 
   test(
-    "test normal service self dispose",
+    "test transient service self dispose",
     () {
       bool isDispose = false;
       var collection = ServiceCollection();
@@ -343,9 +343,9 @@ void main() {
       var provider = collection.build();
 
       var scopedProvider = provider.buildScoped();
-      var normalService = scopedProvider.get<TestService>();
+      var transientService = scopedProvider.get<TestService>();
       expect(scopedProvider.getExistTransient(TestService)?.isNotEmpty, isTrue);
-      normalService.dispose();
+      transientService.dispose();
       expect(isDispose, isTrue);
       expect((scopedProvider.getExistTransient(TestService)?.isEmpty ?? true), isTrue);
     },
