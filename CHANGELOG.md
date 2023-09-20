@@ -1,3 +1,7 @@
+## 1.1.0+2
+
+- fix the bug of when get service in the ServiceObserver
+
 ## 1.1.0+1
 
 - Optimized the dispose method

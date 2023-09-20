@@ -217,6 +217,8 @@ class ServiceProvider {
     return findObservers(dealScoped);
   }
 
+  late final List<ServiceDescriptor> _debugGettingServiceDefinition = [];
+
   /// 根据[ServiceDescriptor]获取服务
   ///
   /// [ServiceDescriptor]服务描述
@@ -247,6 +249,21 @@ class ServiceProvider {
       }
     }
 
+    assert(
+      () {
+        if (_debugGettingServiceDefinition.contains(serviceDefinition)) {
+          return false;
+        }
+        _debugGettingServiceDefinition.add(serviceDefinition);
+        return true;
+      }(),
+      """You are getting services recursively！\n
+      Including but not limited to the following situations：\n
+      1. Get the service when you create it.\n
+      2. Get the same service in the transient service dependencyInjectionServiceInitialize method.\n
+      3. Get transient service in ServiceObserver \n""",
+    );
+
     // 如果没有找到单例，则需要创建服务
     // 创建服务
     final service = serviceDefinition.factory(dealScoped);
@@ -261,6 +278,16 @@ class ServiceProvider {
       observer: observers,
       strongReference: serviceDefinition.isSingleton || serviceDefinition.isScopeSingleton,
     );
+    // 先保存服务
+    if /*如果是单例，保存到自己的单例*/ (serviceDefinition.isSingleton) {
+      _singletons[serviceType] = boundle;
+    } else if /*如果是范围单例，保存到获取服务的范围的单例中*/ (serviceDefinition.isScopeSingleton) {
+      serviceScope._scopedSingletons[serviceType] = boundle;
+    } else /*普通服务保存到获取服务的范围中*/ {
+      serviceScope._transientServices[serviceType] ??= [];
+      serviceScope._transientServices[serviceType]!.add(boundle);
+    }
+
     // 执行观察者
     observers.onServiceCreated(service);
     // 如果服务是 [DependencyInjectionService]类型
@@ -292,15 +319,10 @@ class ServiceProvider {
         observers.onServiceInitializeDone(service);
       }
     }
-
-    if /*如果是单例，保存到自己的单例*/ (serviceDefinition.isSingleton) {
-      _singletons[serviceType] = boundle;
-    } else if /*如果是范围单例，保存到获取服务的范围的单例中*/ (serviceDefinition.isScopeSingleton) {
-      serviceScope._scopedSingletons[serviceType] = boundle;
-    } else /*普通服务保存到获取服务的范围中*/ {
-      serviceScope._transientServices[serviceType] ??= [];
-      serviceScope._transientServices[serviceType]!.add(boundle);
-    }
+    assert(() {
+      _debugGettingServiceDefinition.remove(serviceDefinition);
+      return true;
+    }());
     return service;
   }
 
