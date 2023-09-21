@@ -54,7 +54,6 @@ class _ServiceBoundle {
   final WeakReference<Object> _weakReferenceService;
 
   /// 强引用的服务,不使用这个属性，只是作为单例的强引用，避免释放，应使用[_weakReferenceService]
-  // ignore: unused_field
   final Object? _strongReferenceService;
 
   /// 释放器
@@ -63,7 +62,7 @@ class _ServiceBoundle {
   /// 服务
   Object get service {
     assert(_weakReferenceService.target != null, 'service was disposed');
-    return _weakReferenceService.target!;
+    return _strongReferenceService ?? _weakReferenceService.target!;
   }
 
   /// 释放服务包

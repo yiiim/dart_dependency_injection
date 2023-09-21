@@ -1,3 +1,7 @@
+## 1.1.0+3
+
+- Fix the bug where `_strongReferenceService` is deleted during compilation
+
 ## 1.1.0+2
 
 - fix the bug of when get service in the ServiceObserver
