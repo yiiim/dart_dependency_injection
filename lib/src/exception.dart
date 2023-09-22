@@ -7,3 +7,11 @@ class ServiceNotFoundException implements Exception {
   @override
   String toString() => 'ServiceNotFoundException: $message';
 }
+
+class ServiceAlreadyExistsException implements Exception {
+  const ServiceAlreadyExistsException(this.message);
+
+  final String message;
+  @override
+  String toString() => 'ServiceAlreadyExistsException: $message';
+}

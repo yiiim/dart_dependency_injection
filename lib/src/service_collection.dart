@@ -1,24 +1,62 @@
 part of './dart_dependency_injection.dart';
 
-/// 服务集合
+/// The service collection
+///
+/// example:
+/// ```dart
+/// var collection = ServiceCollection();
+/// // add a singleton service
+/// collection.addSingleton((serviceProvider) => TestService());
+/// // add a scoped service
+/// collection.addScopedSingleton((serviceProvider) => TestService());
+/// // add a transient service
+/// collection.add((serviceProvider) => TestService());
+/// // build service provider
+/// var provider = collection.build();
+/// ```
 class ServiceCollection {
   ServiceCollection({this.allowOverrides = false});
   final Map<Type, ServiceDescriptor> _serviceDescriptor = {};
   final Map<Type, ServiceDescriptor> _initializeWhenProviderBuilt = {};
 
-  /// 是否允许覆盖
+  /// allow overrides service,  default is false
+  ///
+  /// if false, can't add service with same types
+  /// 
+  /// example:
+  /// ```dart
+  /// var collection = ServiceCollection();
+  /// // add a singleton service
+  /// collection.addSingleton<TestService>((serviceProvider) => TestService());
+  /// // add a singleton service with same type
+  /// collection.addSingleton<TestService>((serviceProvider) => TestService());
+  /// ```
+  /// will throw [ServiceAlreadyExistsException]
+  /// 
+  /// but you can add same instance type with different service type
+  /// ```dart
+  /// var collection = ServiceCollection();
+  /// // add a singleton service
+  /// collection.addSingleton<TestService>((serviceProvider) => TestService());
+  /// // add a singleton service with same type
+  /// collection.addSingleton<ITestService>((serviceProvider) => TestService());
+  /// ```
+  /// 
+  /// ---
+  /// 
+  /// if true, can add service with same types, the last one will override the previous one
   final bool allowOverrides;
 
-  /// 添加一个服务
+  /// add a service with [ServiceDescriptor]
   ///
-  /// [serviceDescriptor] 服务描述
-  /// [initializeWhenServiceProviderBuilt] 是否在build之后立即初始化
+  /// [serviceDescriptor] the service descriptor
+  /// [initializeWhenServiceProviderBuilt] whether to initialize immediately after build [ServiceProvider]
   void addServiceDescriptor<T>(ServiceDescriptor<T> serviceDescriptor, {bool initializeWhenServiceProviderBuilt = false}) {
     if (_serviceDescriptor.containsKey(T)) {
       if (allowOverrides) {
         _serviceDescriptor.remove(T);
       } else {
-        throw Exception('Service already exists');
+        throw ServiceAlreadyExistsException('$T Service already exists');
       }
     }
 
@@ -29,18 +67,18 @@ class ServiceCollection {
     }
   }
 
-  /// 添加一个单例服务，该服务在[ServiceProvider]只存在一个实例
+  /// add a singleton service
   ///
-  /// [factory] 服务创建方法
-  /// [initializeWhenServiceProviderBuilt] 是否在build[ServiceProvider]之后立即初始化
+  /// [factory] the service factory
+  /// [initializeWhenServiceProviderBuilt] whether to creationg the service immediately after build [ServiceProvider]
   void addSingleton<T>(T Function(ServiceProvider serviceProvider) factory, {bool initializeWhenServiceProviderBuilt = false}) {
     addServiceDescriptor<T>(ServiceDescriptor<T>((serviceProvider) => factory(serviceProvider), isSingleton: true), initializeWhenServiceProviderBuilt: initializeWhenServiceProviderBuilt);
   }
 
-  /// 添加一个范围单例服务, 该服务在每个范围内存在一个实例
+  /// add a scoped service
   ///
-  /// [factory] 服务创建方法
-  /// [initializeWhenServiceProviderBuilt] 是否在build[ServiceProvider]之后立即初始化
+  /// [factory] the service factory
+  /// [initializeWhenServiceProviderBuilt] whether to creationg the service immediately after build [ServiceProvider]
   void addScopedSingleton<T>(T Function(ServiceProvider serviceProvider) factory, {bool initializeWhenServiceProviderBuilt = false}) => addServiceDescriptor<T>(
         ServiceDescriptor<T>(
           (serviceProvider) => factory(serviceProvider),
@@ -49,10 +87,10 @@ class ServiceCollection {
         initializeWhenServiceProviderBuilt: initializeWhenServiceProviderBuilt,
       );
 
-  /// 添加一个服务，每次获取服务都是不同实例
+  /// add a transient service
   ///
-  /// [factory] 服务创建方法
-  /// [initializeWhenServiceProviderBuilt] 是否在build[ServiceProvider]之后立即初始化
+  /// [factory] the service factory
+  /// [initializeWhenServiceProviderBuilt] whether to creationg the service immediately after build [ServiceProvider]
   void add<T>(T Function(ServiceProvider serviceProvider) factory, {bool initializeWhenServiceProviderBuilt = false}) => addServiceDescriptor<T>(
         ServiceDescriptor<T>(
           (serviceProvider) => factory(serviceProvider),
@@ -60,9 +98,17 @@ class ServiceCollection {
         initializeWhenServiceProviderBuilt: initializeWhenServiceProviderBuilt,
       );
 
-  /// 创建一个[ServiceProvider]，包含[parent]和当前[ServiceCollection]中的服务
+  /// build a scoped service provider from parent service provider
   ///
-  /// [scope]范围标识
+  /// [parent] the parent service provider.
+  /// 
+  /// The built [ServiceProvider] will get all the services of parent
+  /// 
+  /// if has same service type in self with parent, will override parent
+  /// 
+  /// [scope] the scope identifier, no special meaning
+  /// 
+  /// if [initializeWhenServiceProviderBuilt] be set to true when add service, will creationg the service immediately after build [ServiceProvider]
   ServiceProvider buildScoped(ServiceProvider parent, {Object? scope}) {
     var provider = ServiceProvider._(
       Map<Type, ServiceDescriptor>.unmodifiable(
@@ -78,7 +124,11 @@ class ServiceCollection {
     return provider;
   }
 
-  /// 创建一个[ServiceProvider],包含当前[ServiceCollection]中的服务
+  /// build a [ServiceProvider]
+  /// 
+  /// The built [ServiceProvider] can with the service type `get` all added services 
+  /// 
+  /// if [initializeWhenServiceProviderBuilt] be set to true when add service, will creationg the service immediately after build [ServiceProvider]
   ServiceProvider build() {
     var provider = ServiceProvider._(
       Map<Type, ServiceDescriptor>.unmodifiable(

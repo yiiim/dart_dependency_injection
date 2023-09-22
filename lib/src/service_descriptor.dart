@@ -1,6 +1,6 @@
 part of './dart_dependency_injection.dart';
 
-/// 服务描述
+/// The service descriptor
 class ServiceDescriptor<T> {
   ServiceDescriptor(
     this.factory, {
@@ -8,20 +8,20 @@ class ServiceDescriptor<T> {
     this.isScopeSingleton = false,
   }) : assert(!(isSingleton && isScopeSingleton), "isSingleton and isScopeSingleton cannot both be true");
 
-  /// 是否单例
+  /// is singleton
   final bool isSingleton;
 
-  /// 是否范围单例
+  /// is scope singleton
   final bool isScopeSingleton;
 
-  /// 创建服务的方法
+  /// the service factory
   final T Function(ServiceProvider container) factory;
 
-  /// 服务类型
+  /// the service type
   Type get serviceType => T;
 
-  /// 传入的[descriptor]服务是否可以观察当前服务
-  bool isObserver(ServiceDescriptor descriptor) {
+  /// can [descriptor] observe current service
+  bool _isObserver(ServiceDescriptor descriptor) {
     var result = descriptor.serviceType == ServiceObserver<T>;
     return result;
   }
