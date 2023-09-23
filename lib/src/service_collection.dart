@@ -1,6 +1,6 @@
 part of './dart_dependency_injection.dart';
 
-/// The service collection
+/// The service collection, build [ServiceProvider] with it
 ///
 /// example:
 /// ```dart

@@ -1,7 +1,10 @@
 name: dart_dependency_injection
-description: A dart dependency injection library. Easy to manage dependencies.
-version: 1.1.0+3
+description: The most powerful dependency injection library for Dart.
+version: 1.1.1
 homepage: https://github.com/yiiim/dart_dependency_injection
+
+topics:
+ - dependency-injection
 
 environment:
   sdk: ">=2.17.6 <4.0.0"

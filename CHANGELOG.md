@@ -1,3 +1,7 @@
+## 1.1.1
+
+- the `ServiceProvider` added `find` method
+
 ## 1.1.0+3
 
 - Fix the bug where `_strongReferenceService` is deleted during compilation

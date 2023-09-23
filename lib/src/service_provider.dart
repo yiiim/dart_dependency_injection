@@ -30,8 +30,8 @@ class _ServiceBoundle {
     bool strongReference = false,
   })  : _weakReferenceService = WeakReference(service),
         _strongReferenceService = strongReference == true ? service : null,
-        _finalizer = !strongReference ? Finalizer<_ServiceBoundle>((t) => t.dispose()) : null {
-    _finalizer?.attach(service, this);
+        _finalizer = !strongReference ? Finalizer<_ServiceBoundle>((t) => t.finalize()) : null {
+    _finalizer?.attach(service, this, detach: service);
   }
 
   /// the service type
@@ -40,7 +40,7 @@ class _ServiceBoundle {
   /// the service definition
   final ServiceDescriptor serviceDefinition;
 
-  /// the service scoped
+  /// the service of scope
   final ServiceProvider scoped;
 
   /// the scope provider created by this bundle
@@ -72,28 +72,39 @@ class _ServiceBoundle {
     return _strongReferenceService ?? _weakReferenceService.target!;
   }
 
+  /// [Finalizer] will call this method when service is cleared by Dart GC
+  void finalize() {
+    dispose(disposeByFinalizer: true);
+  }
+
   /// dispose service boundle
   ///
   /// [disposeByServiceProvider] dispose by service provider
-  void dispose({bool disposeByServiceProvider = false}) {
-    /// dispose all the scoped provider created by this boundle
+  void dispose({bool disposeByServiceProvider = false, bool disposeByFinalizer = false}) {
+    // dispose all the scoped provider these are created by this boundle
     for (var element in scopedProvider) {
       element.dispose();
     }
 
-    /// observer
+    // notify observer
     for (var element in observer) {
       element.onServiceDispose(_weakReferenceService.target);
     }
     observer.clear();
 
-    /// if the service is alive and is [DependencyInjectionService], detach it from this boundle
+    // if the service is alive and is [DependencyInjectionService], detach it from this boundle
     if (_weakReferenceService.target != null) {
       if (_weakReferenceService.target is DependencyInjectionService) {
         (_weakReferenceService.target as DependencyInjectionService)._detachFromBoundle(this);
       }
     }
-    // if this boundle is not dispose by service provider, maybe dispose by service itself, remove it from service provider
+
+    // if this boundle is not dispose by finalizer, detach from finalizer
+    if (!disposeByFinalizer) {
+      _finalizer?.detach(service);
+    }
+
+    // if this boundle is not dispose by service provider, maybe dispose by service itself or finalizer, remove it from service provider
     if (!disposeByServiceProvider) {
       if (serviceDefinition.isSingleton) {
         scoped._singletons[serviceType] = null;
@@ -127,12 +138,62 @@ class _BuildFromServiceScope {
   final _ServiceBoundle createByService;
 }
 
+/// ## ServiceProvider
+///
+/// The service provider, build from a [ServiceCollection]
+///
+/// The service can be gotten from this [ServiceProvider] if it is defined in the [ServiceCollection]
+///
+/// example:
+///
+/// ```dart
+/// // create a service collection
+/// var collection = ServiceCollection();
+/// // define a service
+/// collection.addSingleton<TestService>((serviceProvider) => TestService());
+/// // build a service provider
+/// var provider = collection.build();
+/// // get service
+/// var service = provider.get<TestService>();
+/// ```
+///
+/// The [ServiceProvider] may also be one of the scopes of the parent [ServiceProvider]
+/// The scope [ServiceProvider] will inherit all services of the parent [ServiceProvider]
+///
+/// example
+/// ```dart
+/// // ...
+/// var provider = collection.build();
+/// // build a scoped service provider
+/// var scopedProvider = provider.buildScoped();
+/// // get service from scoped service provider
+/// var service = scopedProvider.get<TestService>();
+/// ```
+///
+/// When building the scope [ServiceProvider], services defined by the parent can be overridden
+///
+/// example
+/// ```dart
+/// // ...
+/// collection.addSingleton<TestService>((serviceProvider) => TestService());
+/// var provider = collection.build();
+/// // build a scoped service provider
+/// var scopedProvider = provider.buildScoped(
+///  builder: (collection) {
+///     // override the service
+///     collection.addSingleton<TestService>((serviceProvider) => MyTestService());
+///   },
+/// );
+/// // get service from scoped service provider
+/// var service = scopedProvider.get<TestService>();
+/// // service is MyTestService
+/// ```
 class ServiceProvider {
   ServiceProvider._(
     Map<Type, ServiceDescriptor> serviceDescriptors, {
     this.parent,
     Object? scope,
-  })  : _serviceDescriptors = serviceDescriptors,
+  })  : serviceDescriptors = UnmodifiableMapView(serviceDescriptors),
         _scope = scope,
         _observerServiceDescriptor = serviceDescriptors.values.whereType<ServiceDescriptor<ServiceObserver>>().toList();
 
@@ -147,8 +208,8 @@ class ServiceProvider {
   /// the parent provider, if not null, this provider is a scope provider
   final ServiceProvider? parent;
 
-  /// all the service descriptors
-  final Map<Type, ServiceDescriptor> _serviceDescriptors;
+  /// all of the service descriptors
+  final Map<Type, ServiceDescriptor> serviceDescriptors;
 
   /// all the [Future] that currently executing [DependencyInjectionService.dependencyInjectionServiceInitialize]
   late final Map<Type, List<Future>> _asyncServiceInitializeProcessByType = {};
@@ -194,7 +255,7 @@ class ServiceProvider {
   /// observer for the [serviceDefinition]
   /// [dealScoped] the scope of the service
   Iterable<ServiceObserver> _getObservers(ServiceDescriptor serviceDefinition, ServiceProvider dealScoped) {
-    assert(_serviceDescriptors.values.contains(serviceDefinition));
+    assert(serviceDescriptors.values.contains(serviceDefinition));
     assert(() {
       ServiceProvider? childProvider = dealScoped;
       while (childProvider != null) {
@@ -227,7 +288,7 @@ class ServiceProvider {
 
   /// get service with [ServiceDescriptor]
   dynamic __get(ServiceDescriptor serviceDefinition, Type serviceType, ServiceProvider dealScoped) {
-    assert(_serviceDescriptors.values.contains(serviceDefinition));
+    assert(serviceDescriptors.values.contains(serviceDefinition));
     // the service scope that for this service
     var serviceScope = serviceDefinition.isSingleton ? this : dealScoped;
 
@@ -259,7 +320,7 @@ class ServiceProvider {
         _debugGettingServiceDefinition.add(serviceDefinition);
         return true;
       }(),
-      """You are getting services recursively！\n
+      """You are getting services recursively for ${serviceDefinition.serviceType}！\n
       Including but not limited to the following situations：\n
       1. Get the service when you create it.\n
       2. Get the same service in the transient service dependencyInjectionServiceInitialize method.\n
@@ -319,7 +380,7 @@ class ServiceProvider {
   }
 
   dynamic _get(Type serviceType, {ServiceProvider? dealScoped}) {
-    final serviceDefinition = _serviceDescriptors[serviceType];
+    final serviceDefinition = serviceDescriptors[serviceType];
     if (serviceDefinition == null) {
       var service = parent?._get(serviceType, dealScoped: dealScoped ?? this);
       return service;
@@ -327,7 +388,82 @@ class ServiceProvider {
     return __get(serviceDefinition, serviceType, dealScoped ?? this);
   }
 
-  T get<T extends Object>() {
+  /// ## Get service from [ServiceProvider]
+  ///
+  /// When get service from [ServiceProvider]
+  ///
+  /// gotten service instance may be different depending on  how the service defined in [ServiceCollection]
+  ///
+  /// ### for singleton service
+  ///
+  /// always get the same instance in the [ServiceProvider] and its sub [ServiceProvider] if the service is not overridden
+  ///
+  /// example:
+  /// ```dart
+  /// // ...
+  /// collection.addSingleton<TestService>((serviceProvider) => TestService());
+  /// // build a service provider
+  /// var provider = collection.build();
+  /// // build a scoped service provider
+  /// var scopedProvider = provider.buildScoped();
+  /// // get service from parent service provider
+  /// var service1 = provider.get<TestService>();
+  /// var service2 = provider.get<TestService>();
+  /// // get service from scoped service provider
+  /// var service3 = scopedProvider.get<TestService>();
+  /// var service4 = scopedProvider.get<TestService>();
+  /// // service1, service2, service3, service4 all is the same instance
+  /// ```
+  ///
+  /// ### for scope singleton service
+  ///
+  /// always get the same instance in the same [ServiceProvider]
+  ///
+  /// example:
+  /// ```dart
+  /// // ...
+  /// collection.addScopedSingleton<TestService>((serviceProvider) => TestService());
+  /// // build a service provider
+  /// var provider = collection.build();
+  /// // build a scoped service provider
+  /// var scopedProvider = provider.buildScoped();
+  /// // build another scoped service provider
+  /// var scopedProvider2 = provider.buildScoped();
+  /// // get service from parent service provider
+  /// var service1 = provider.get<TestService>();
+  /// var service2 = provider.get<TestService>();
+  /// // get service from scoped service provider
+  /// var service3 = scopedProvider.get<TestService>();
+  /// var service4 = scopedProvider.get<TestService>();
+  /// // get service from another scoped service provider
+  /// var service5 = scopedProvider2.get<TestService>();
+  /// var service6 = scopedProvider2.get<TestService>();
+  /// // service1, service2 is the same instance
+  /// // service3, service4 is the same instance
+  /// // service5, service6 is the same instance
+  /// ```
+  ///
+  /// ### for transient service
+  ///
+  /// always get a new instance
+  ///
+  /// example:
+  /// ```dart
+  /// // ...
+  /// collection.add<TestService>((serviceProvider) => TestService());
+  /// // build a service provider
+  /// var provider = collection.build();
+  /// // build a scoped service provider
+  /// var scopedProvider = provider.buildScoped();
+  /// // get service from parent service provider
+  /// var service1 = provider.get<TestService>();
+  /// var service2 = provider.get<TestService>();
+  /// // get service from scoped service provider
+  /// var service3 = scopedProvider.get<TestService>();
+  /// var service4 = scopedProvider.get<TestService>();
+  /// // service1, service2, service3, service4 all is different instance
+  /// ```
+  T get<T>() {
     var service = _get(T);
     if (service == null) {
       throw ServiceNotFoundException(
@@ -337,8 +473,10 @@ class ServiceProvider {
     return service;
   }
 
-  T? tryGet<T extends Object>() => _get(T);
+  /// try get service, if service not found, return null, see the [get] method
+  T? tryGet<T>() => _get(T);
 
+  /// get service by type, can see the [get] method
   dynamic getByType(Type type) {
     var service = _get(type);
     if (service == null) {
@@ -349,7 +487,34 @@ class ServiceProvider {
     return service;
   }
 
+  /// try get service by type, if service not found, return null, see the [get] method
   dynamic tryGetByType(Type type) => _get(type);
+
+  /// find alive services
+  Iterable<T> find<T>() => findByType(T).map((e) => e as T);
+
+  /// find alive services by type, see the [find] method
+  Iterable findByType(Type type) sync* {
+    if (_transientServices.containsKey(type)) {
+      yield* _transientServices[type]!.map((e) => e.service);
+    }
+    if (_scopedSingletons.containsKey(type)) {
+      yield _scopedSingletons[type]!.service;
+    }
+    dynamic findSingleton(ServiceProvider provider) {
+      if (provider._singletons.containsKey(type)) {
+        return provider._singletons[type]!.service;
+      }
+      if (provider.parent != null) {
+        return findSingleton(provider.parent!);
+      }
+    }
+
+    var singleton = findSingleton(this);
+    if (singleton != null) {
+      yield singleton;
+    }
+  }
 
   /// Wait for the latest service to initialize
   FutureOr waitLatestServiceInitialize() => _latestServiceInitializeProcess;
@@ -380,6 +545,9 @@ class ServiceProvider {
     return scopedBuilder.buildScoped(this, scope: scope);
   }
 
+  /// dispose the [ServiceProvider]
+  ///
+  /// will dispose all the services and sub scopes
   void dispose() {
     // dispose singleton service
     for (final element in _singletons.keys) {

@@ -1,6 +1,6 @@
 part of './dart_dependency_injection.dart';
 
-/// 可以将这个类混入由依赖注入生成的服务
+/// with [DependencyInjectionService] only for service from [ServiceProvider]
 mixin DependencyInjectionService on Object {
   late final List<_ServiceBoundle> _boundles = [];
   _ServiceBoundle? _boundle;
@@ -44,37 +44,38 @@ mixin DependencyInjectionService on Object {
     }
   }
 
+  /// get service provider
   ServiceProvider get serviceProvider {
     assert(_boundle?.scoped != null, 'this service create not from dependency injection or this service was disposed');
     return _boundle!.scoped;
   }
 
-  /// 获取服务
+  /// get service in current scope
   T getService<T extends Object>() => serviceProvider.get<T>();
 
-  /// 尝试获取服务，如果服务不存在返回null
+  /// get service in current scope
   T? tryGetService<T extends Object>() => serviceProvider.tryGet<T>();
 
-  /// 获取服务
+  /// try get service in current scope
   dynamic getServiceByType(Type type) => serviceProvider.getByType(type);
 
-  /// 尝试获取服务，如果服务不存在返回null
+  /// try get service in current scope
   dynamic tryGetServiceByType(Type type) => serviceProvider.tryGetByType(type);
 
-  /// 生成一个范围
+  /// build a scoped service provider from current service provider
   ServiceProvider buildScopedServiceProvider<T>({void Function(ServiceCollection)? builder, Object? scope}) {
     var scopedProvider = serviceProvider.buildScoped(builder: builder, scope: _BuildFromServiceScope(createByService: _boundle!, scope: scope));
     _boundle?.scopedProvider.add(scopedProvider);
     return scopedProvider;
   }
 
-  /// 初始化服务
+  /// that method will be executed immediately after creation.
   FutureOr dependencyInjectionServiceInitialize() {}
 
-  /// 如果你调用了[getService], 你可以立即await [waitLatestServiceInitialize],来等待该服务执行[dependencyInjectionServiceInitialize]
+  /// same as [ServiceProvider.waitLatestServiceInitialize]
   FutureOr waitLatestServiceInitialize() => serviceProvider.waitLatestServiceInitialize();
 
-  /// 等待当前全部正在初始化的服务完成
+  /// same as [ServiceProvider.waitServicesInitialize]
   FutureOr waitServicesInitialize() => serviceProvider.waitServicesInitialize();
 
   bool _disposed = false;

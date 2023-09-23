@@ -562,4 +562,37 @@ void main() {
       expect(isOtherDispose, isTrue);
     },
   );
+
+  test(
+    "test find service",
+    () async {
+      var collection = ServiceCollection();
+      collection.add<TestTypedObserver<int>>((serviceProvider) => TestTypedObserver<int>());
+      collection.addSingleton<TestTypedObserver<String>>((serviceProvider) => TestTypedObserver<String>());
+      collection.addScopedSingleton<TestTypedObserver<double>>((serviceProvider) => TestTypedObserver<double>());
+      var provider = collection.build();
+      expect(provider.find<TestTypedObserver<int>>().isEmpty, isTrue);
+      provider.get<TestTypedObserver<int>>();
+      expect(provider.find<TestTypedObserver<int>>().isEmpty, isFalse);
+
+      expect(provider.find<TestTypedObserver<String>>().isEmpty, isTrue);
+      provider.get<TestTypedObserver<String>>();
+      expect(provider.find<TestTypedObserver<String>>().isEmpty, isFalse);
+
+      expect(provider.find<TestTypedObserver<double>>().isEmpty, isTrue);
+      provider.get<TestTypedObserver<double>>();
+      expect(provider.find<TestTypedObserver<double>>().isEmpty, isFalse);
+
+      var scopedProvider = provider.buildScoped();
+      expect(scopedProvider.find<TestTypedObserver<int>>().isEmpty, isTrue);
+      expect(scopedProvider.find<TestTypedObserver<String>>().isEmpty, isFalse);
+      expect(scopedProvider.find<TestTypedObserver<double>>().isEmpty, isTrue);
+
+      scopedProvider.get<TestTypedObserver<int>>();
+      expect(scopedProvider.find<TestTypedObserver<int>>().isEmpty, isFalse);
+
+      scopedProvider.get<TestTypedObserver<double>>();
+      expect(scopedProvider.find<TestTypedObserver<double>>().isEmpty, isFalse);
+    },
+  );
 }
