@@ -3,32 +3,43 @@ part of './dart_dependency_injection.dart';
 /// with [DependencyInjectionService] only for service from [ServiceProvider]
 mixin DependencyInjectionService on Object {
   late final List<_ServiceBoundle> _boundles = [];
+  bool _isRunInitialize = false;
   _ServiceBoundle? _boundle;
   FutureOr? _initializeResult;
 
-  FutureOr _attachToBoundle(_ServiceBoundle boundle) {
+  /// This service is attached to a [ServiceProvider]
+  bool get isAttached => _boundle != null;
+
+  void _attachToBoundle(_ServiceBoundle boundle) {
     assert(() {
       if (_boundle?.scoped != null && _boundle?.scoped != boundle.scoped) {
-        print("Warning ！！ Don't inject the same service instance into multiple scopes，");
+        print("Warning! Same instance injected in different service scopes");
       }
       return true;
     }());
-    bool runInitialize = _boundles.isEmpty;
     _boundles.add(boundle);
     _boundle = boundle;
-    if (runInitialize) {
-      var initialize = dependencyInjectionServiceInitialize();
-      if (initialize is Future) {
-        initialize.then(
-          (value) {
-            _initializeResult = null;
-          },
-          onError: (error) {
-            _initializeResult = null;
-          },
-        );
+  }
+
+  FutureOr _runInitialize() {
+    if (!_isRunInitialize) {
+      _isRunInitialize = true;
+      try {
+        var initialize = dependencyInjectionServiceInitialize();
+        if (initialize is Future) {
+          initialize.then(
+            (value) {
+              _initializeResult = null;
+            },
+            onError: (error) {
+              _initializeResult = null;
+            },
+          );
+        }
+        _initializeResult = initialize;
+      } catch (e) {
+        assert(false, '$runtimeType dependencyInjectionServiceInitialize error: $e');
       }
-      _initializeResult = initialize;
     }
     return _initializeResult;
   }
@@ -80,9 +91,9 @@ mixin DependencyInjectionService on Object {
 
   bool _disposed = false;
 
-  /// dispose当前服务
+  /// Dispose the current service
   ///
-  /// [fromUser] 是否是用户主动调用的dispose
+  /// [fromUser] Whether the dispose was called by the user
   void _dispose({bool fromUser = false}) {
     if (_disposed) return;
     _disposed = true;

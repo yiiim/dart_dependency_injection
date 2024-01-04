@@ -3,19 +3,43 @@ part of './dart_dependency_injection.dart';
 extension ServiceObserviceListExtension on Iterable<ServiceObserver> {
   void onServiceCreated(service) {
     for (var element in this) {
-      element.onServiceCreated(service);
+      try {
+        element.onServiceCreated(service);
+      } catch (e, s) {
+        // 捕获异常和堆栈信息
+        assert(
+          false,
+          'ServiceObserver($runtimeType) ${element.runtimeType} onServiceCreated \n $e \n $s', // 在这里打印堆栈信息
+        );
+      }
     }
   }
 
   void onServiceInitializeDone(service) {
     for (var element in this) {
-      element.onServiceInitializeDone(service);
+      try {
+        element.onServiceInitializeDone(service);
+      } catch (e, s) {
+        // 捕获异常和堆栈信息
+        assert(
+          false,
+          'ServiceObserver($runtimeType) ${element.runtimeType} onServiceInitializeDone \n $e \n $s', // 在这里打印堆栈信息
+        );
+      }
     }
   }
 
   void onServiceDispose(service) {
     for (var element in this) {
-      element.onServiceDispose(service);
+      try {
+        element.onServiceDispose(service);
+      } catch (e, s) {
+        // 捕获异常和堆栈信息
+        assert(
+          false,
+          'ServiceObserver($runtimeType) ${element.runtimeType} onServiceDispose \n $e \n $s', // 在这里打印堆栈信息
+        );
+      }
     }
   }
 }
@@ -87,9 +111,7 @@ class _ServiceBoundle {
     }
 
     // notify observer
-    for (var element in observer) {
-      element.onServiceDispose(_weakReferenceService.target);
-    }
+    observer.onServiceDispose(_weakReferenceService.target);
     observer.clear();
 
     // if the service is alive and is [DependencyInjectionService], detach it from this boundle
@@ -327,7 +349,7 @@ class ServiceProvider {
       3. Get transient service in ServiceObserver \n""",
     );
     // create service
-    final service = serviceDefinition.factory(dealScoped);
+    late final service = serviceDefinition.factory(dealScoped);
     // find observers
     var observers = _getObservers(serviceDefinition, dealScoped).toList();
     // create boundle
@@ -348,11 +370,14 @@ class ServiceProvider {
       serviceScope._transientServices[serviceType] ??= [];
       serviceScope._transientServices[serviceType]!.add(boundle);
     }
-    // notify observers
-    observers.onServiceCreated(service);
+
     if (service is DependencyInjectionService) {
       // attach to boundle
-      var initResult = service._attachToBoundle(boundle);
+      service._attachToBoundle(boundle);
+      // notify observers
+      observers.onServiceCreated(service);
+      // run initialize
+      var initResult = service._runInitialize();
       // If the service requires asynchronous initialization
       if (initResult is Future) {
         dealScoped._latestServiceInitializeProcess = initResult;
@@ -371,6 +396,9 @@ class ServiceProvider {
       } else {
         observers.onServiceInitializeDone(service);
       }
+    } else {
+      // notify observers
+      observers.onServiceCreated(service);
     }
     assert(() {
       _debugGettingServiceDefinition.remove(serviceDefinition);
