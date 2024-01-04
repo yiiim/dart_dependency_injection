@@ -1,3 +1,7 @@
+## 1.1.2
+
+- Fix get service in the ServiceObserver
+
 ## 1.1.1
 
 - the `ServiceProvider` added `find` method
