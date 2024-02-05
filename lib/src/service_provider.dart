@@ -294,7 +294,7 @@ class ServiceProvider {
           return element != serviceDefinition && (element.serviceType == ServiceObserver || serviceDefinition._isObserver(element));
         },
       ).map<ServiceObserver>(
-        (e) => __get(e, e.serviceType, dealScoped),
+        (e) => provider.__get(e, e.serviceType, dealScoped),
       );
       yield* observers;
       // find from parent
