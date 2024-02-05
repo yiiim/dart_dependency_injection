@@ -1,3 +1,7 @@
+## 1.1.2+1
+
+- Fix observer issue
+
 ## 1.1.2
 
 - Fix get service in the ServiceObserver
