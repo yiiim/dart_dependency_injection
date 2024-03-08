@@ -35,9 +35,9 @@ class TestTypedObserver<T> extends ServiceObserver<T> {
     this.onServiceDisposeFunc,
     this.onServiceInitializeDoneFunc,
   });
-  final void Function(dynamic service)? onServiceCreatedFunc;
-  final void Function(dynamic service)? onServiceDisposeFunc;
-  final void Function(dynamic service)? onServiceInitializeDoneFunc;
+  void Function(dynamic service)? onServiceCreatedFunc;
+  void Function(dynamic service)? onServiceDisposeFunc;
+  void Function(dynamic service)? onServiceInitializeDoneFunc;
 
   @override
   void onServiceCreated(service) {
@@ -560,6 +560,30 @@ void main() {
       expect(isDispose, isFalse);
 
       expect(isOtherDispose, isTrue);
+    },
+  );
+
+  test(
+    "test extend typed observer",
+    () async {
+      bool isCallCreated = false;
+      var collection = ServiceCollection();
+      collection.add<TestServiceCopyType>(
+        (serviceProvider) => TestServiceCopyType(),
+        initializeWhenServiceProviderBuilt: true,
+      );
+      collection.add<ServiceObserver<TestService>>(
+        (serviceProvider) {
+          var service = TestTypedObserver<TestService>(
+            onServiceCreatedFunc: (service) {
+              isCallCreated = true;
+            },
+          );
+          return service;
+        },
+      );
+      collection.build();
+      expect(isCallCreated, isTrue);
     },
   );
 

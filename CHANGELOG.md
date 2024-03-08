@@ -1,3 +1,7 @@
+## 1.1.3+1
+
+- Fix observer bug
+
 ## 1.1.3
 
 - Configure service

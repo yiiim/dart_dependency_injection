@@ -26,8 +26,12 @@ class ServiceDescriptor<T> {
 
   /// can [descriptor] observe current service
   bool _isObserver(ServiceDescriptor descriptor) {
-    var result = descriptor.serviceType == ServiceObserver<T>;
+    bool result = descriptor._checkIsType(<ServiceObserver<T>>[]);
     return result;
+  }
+
+  bool _checkIsType(List typedList) {
+    return typedList is List<T>;
   }
 
   /// call the service configuration

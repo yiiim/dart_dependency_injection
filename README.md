@@ -79,7 +79,6 @@ var serviceProvider = ServiceProvider build();
 
 After building the ServiceProvider, you will no longer be able to add services, but you can build the scope.
 
-
 ### Build a Scope ServiceProvider
 
 ```dart
@@ -194,7 +193,7 @@ var collection = ServiceCollection();
 collection.add<ServiceObserver<TestService>>((serviceProvider) => TestServiceObserver());
 ```
 
-just only the `TestService` will be observed.
+only the `TestService` and its subclasses will be observed.
 
 ## DependencyInjectionService
 
