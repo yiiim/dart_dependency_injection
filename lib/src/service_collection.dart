@@ -105,12 +105,7 @@ class ServiceCollection {
     assert(_serviceDescriptor.containsKey(T), 'Service not found');
     if (_serviceDescriptor.containsKey(T)) {
       final descriptor = _serviceDescriptor[T] as ServiceDescriptor<T>;
-      _serviceDescriptor[T] = ServiceDescriptor<T>(
-        descriptor.factory,
-        isSingleton: descriptor.isSingleton,
-        isScopeSingleton: descriptor.isScopeSingleton,
-        configuration: (service) => configuration(service),
-      );
+      descriptor.configurations.add((configuration));
     }
   }
 

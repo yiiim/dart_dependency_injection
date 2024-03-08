@@ -6,7 +6,6 @@ class ServiceDescriptor<T> {
     this.factory, {
     this.isSingleton = false,
     this.isScopeSingleton = false,
-    this.configuration,
   }) : assert(!(isSingleton && isScopeSingleton), "isSingleton and isScopeSingleton cannot both be true");
 
   /// is singleton
@@ -19,7 +18,7 @@ class ServiceDescriptor<T> {
   final T Function(ServiceProvider container) factory;
 
   /// configure service after creation
-  final void Function(T service)? configuration;
+  final List<void Function(T service)> configurations = [];
 
   /// the service type
   Type get serviceType => T;
@@ -36,6 +35,8 @@ class ServiceDescriptor<T> {
 
   /// call the service configuration
   void _callConfiguration(T service) {
-    configuration?.call(service);
+    for (var element in configurations) {
+      element.call(service);
+    }
   }
 }

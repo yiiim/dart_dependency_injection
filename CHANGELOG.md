@@ -1,3 +1,7 @@
+## 1.1.3+2
+
+- Configure multiple times
+
 ## 1.1.3+1
 
 - Fix observer bug
