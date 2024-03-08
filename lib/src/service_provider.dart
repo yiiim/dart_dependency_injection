@@ -350,6 +350,8 @@ class ServiceProvider {
     );
     // create service
     late final service = serviceDefinition.factory(dealScoped);
+    // configure service
+    serviceDefinition._callConfiguration(service);
     // find observers
     var observers = _getObservers(serviceDefinition, dealScoped).toList();
     // create boundle

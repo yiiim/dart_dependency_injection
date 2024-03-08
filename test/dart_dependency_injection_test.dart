@@ -73,7 +73,7 @@ class TestService with DependencyInjectionService {
   FutureOr Function(TestService service)? dependencyInjectionServiceDisposeFunction;
   @override
   FutureOr dependencyInjectionServiceInitialize() => dependencyInjectionServiceInitializeFunction?.call(this);
-
+  String option = "";
   @override
   void dispose() {
     super.dispose();
@@ -593,6 +593,41 @@ void main() {
 
       scopedProvider.get<TestTypedObserver<double>>();
       expect(scopedProvider.find<TestTypedObserver<double>>().isEmpty, isFalse);
+    },
+  );
+
+  test(
+    "test service configuration",
+    () {
+      var transientCollection = ServiceCollection();
+      transientCollection.add<TestService>((serviceProvider) => TestService());
+      transientCollection.configure<TestService>((service) {
+        service.option = "transient";
+      });
+      var transientProvider = transientCollection.build();
+      expect(transientProvider.get<TestService>().option, "transient");
+      var transientScopedProvider = transientProvider.buildScoped();
+      expect(transientScopedProvider.get<TestService>().option, "transient");
+
+      var singleTestCollection = ServiceCollection();
+      singleTestCollection.addSingleton<TestService>((serviceProvider) => TestService());
+      singleTestCollection.configure<TestService>((service) {
+        service.option = "single";
+      });
+      var singleTestProvider = singleTestCollection.build();
+      expect(singleTestProvider.get<TestService>().option, "single");
+      var singleTestScopedProvider = singleTestProvider.buildScoped();
+      expect(singleTestScopedProvider.get<TestService>().option, "single");
+
+      var scopedSingleTestCollection = ServiceCollection();
+      scopedSingleTestCollection.addScopedSingleton<TestService>((serviceProvider) => TestService());
+      scopedSingleTestCollection.configure<TestService>((service) {
+        service.option = "scopedSingle";
+      });
+      var scopedSingleTestProvider = scopedSingleTestCollection.build();
+      expect(scopedSingleTestProvider.get<TestService>().option, "scopedSingle");
+      var scopedSingleTestScopedProvider = scopedSingleTestProvider.buildScoped();
+      expect(scopedSingleTestScopedProvider.get<TestService>().option, "scopedSingle");
     },
   );
 }

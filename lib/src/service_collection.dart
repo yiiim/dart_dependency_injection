@@ -22,7 +22,7 @@ class ServiceCollection {
   /// allow overrides service,  default is false
   ///
   /// if false, can't add service with same types
-  /// 
+  ///
   /// example:
   /// ```dart
   /// var collection = ServiceCollection();
@@ -32,7 +32,7 @@ class ServiceCollection {
   /// collection.addSingleton<TestService>((serviceProvider) => TestService());
   /// ```
   /// will throw [ServiceAlreadyExistsException]
-  /// 
+  ///
   /// but you can add same instance type with different service type
   /// ```dart
   /// var collection = ServiceCollection();
@@ -41,9 +41,9 @@ class ServiceCollection {
   /// // add a singleton service with same type
   /// collection.addSingleton<ITestService>((serviceProvider) => TestService());
   /// ```
-  /// 
+  ///
   /// ---
-  /// 
+  ///
   /// if true, can add service with same types, the last one will override the previous one
   final bool allowOverrides;
 
@@ -98,16 +98,32 @@ class ServiceCollection {
         initializeWhenServiceProviderBuilt: initializeWhenServiceProviderBuilt,
       );
 
+  /// add a service configuration after creation
+  ///
+  /// [configuration] the service configuration function after creation
+  void configure<T>(void Function(T service) configuration) {
+    assert(_serviceDescriptor.containsKey(T), 'Service not found');
+    if (_serviceDescriptor.containsKey(T)) {
+      final descriptor = _serviceDescriptor[T] as ServiceDescriptor<T>;
+      _serviceDescriptor[T] = ServiceDescriptor<T>(
+        descriptor.factory,
+        isSingleton: descriptor.isSingleton,
+        isScopeSingleton: descriptor.isScopeSingleton,
+        configuration: (service) => configuration(service),
+      );
+    }
+  }
+
   /// build a scoped service provider from parent service provider
   ///
   /// [parent] the parent service provider.
-  /// 
+  ///
   /// The built [ServiceProvider] will get all the services of parent
-  /// 
+  ///
   /// if has same service type in self with parent, will override parent
-  /// 
+  ///
   /// [scope] the scope identifier, no special meaning
-  /// 
+  ///
   /// if [initializeWhenServiceProviderBuilt] be set to true when add service, will creationg the service immediately after build [ServiceProvider]
   ServiceProvider buildScoped(ServiceProvider parent, {Object? scope}) {
     var provider = ServiceProvider._(
@@ -125,9 +141,9 @@ class ServiceCollection {
   }
 
   /// build a [ServiceProvider]
-  /// 
-  /// The built [ServiceProvider] can with the service type `get` all added services 
-  /// 
+  ///
+  /// The built [ServiceProvider] can with the service type `get` all added services
+  ///
   /// if [initializeWhenServiceProviderBuilt] be set to true when add service, will creationg the service immediately after build [ServiceProvider]
   ServiceProvider build() {
     var provider = ServiceProvider._(
