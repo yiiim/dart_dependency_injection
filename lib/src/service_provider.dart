@@ -278,16 +278,6 @@ class ServiceProvider {
   /// [dealScoped] the scope of the service
   Iterable<ServiceObserver> _getObservers(ServiceDescriptor serviceDefinition, ServiceProvider dealScoped) {
     assert(serviceDescriptors.values.contains(serviceDefinition));
-    assert(() {
-      ServiceProvider? childProvider = dealScoped;
-      while (childProvider != null) {
-        if (childProvider == this) {
-          return true;
-        }
-        childProvider = childProvider.parent;
-      }
-      return false;
-    }());
     Iterable<ServiceObserver> findObservers(ServiceProvider provider) sync* {
       var observers = provider._observerServiceDescriptor.where(
         (element) {
@@ -298,7 +288,7 @@ class ServiceProvider {
       );
       yield* observers;
       // find from parent
-      if (provider != this && provider.parent != null) {
+      if (provider.parent != null) {
         yield* findObservers(provider.parent!);
       }
     }
