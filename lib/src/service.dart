@@ -89,6 +89,12 @@ mixin DependencyInjectionService on Object {
   /// same as [ServiceProvider.waitServicesInitialize]
   FutureOr waitServicesInitialize() => serviceProvider.waitServicesInitialize();
 
+  /// same as [ServiceProvider.waitServiceInitialize]
+  FutureOr waitServiceInitialize<T>() => serviceProvider.waitServiceInitialize<T>();
+
+  /// same as [ServiceProvider.waitServiceInitializeByType]
+  FutureOr waitServiceInitializeByType(Type type) => serviceProvider.waitServiceInitializeByType(type);
+
   bool _disposed = false;
 
   /// Dispose the current service

@@ -6,10 +6,9 @@ extension ServiceObserviceListExtension on Iterable<ServiceObserver> {
       try {
         element.onServiceCreated(service);
       } catch (e, s) {
-        // 捕获异常和堆栈信息
         assert(
           false,
-          'ServiceObserver($runtimeType) ${element.runtimeType} onServiceCreated \n $e \n $s', // 在这里打印堆栈信息
+          'ServiceObserver($runtimeType) ${element.runtimeType} onServiceCreated \n $e \n $s',
         );
       }
     }
@@ -20,10 +19,9 @@ extension ServiceObserviceListExtension on Iterable<ServiceObserver> {
       try {
         element.onServiceInitializeDone(service);
       } catch (e, s) {
-        // 捕获异常和堆栈信息
         assert(
           false,
-          'ServiceObserver($runtimeType) ${element.runtimeType} onServiceInitializeDone \n $e \n $s', // 在这里打印堆栈信息
+          'ServiceObserver($runtimeType) ${element.runtimeType} onServiceInitializeDone \n $e \n $s',
         );
       }
     }
@@ -34,10 +32,9 @@ extension ServiceObserviceListExtension on Iterable<ServiceObserver> {
       try {
         element.onServiceDispose(service);
       } catch (e, s) {
-        // 捕获异常和堆栈信息
         assert(
           false,
-          'ServiceObserver($runtimeType) ${element.runtimeType} onServiceDispose \n $e \n $s', // 在这里打印堆栈信息
+          'ServiceObserver($runtimeType) ${element.runtimeType} onServiceDispose \n $e \n $s',
         );
       }
     }
@@ -122,7 +119,7 @@ class _ServiceBoundle {
     }
 
     // if this boundle is not dispose by finalizer, detach from finalizer
-    if (!disposeByFinalizer) {
+    if (!disposeByFinalizer && _weakReferenceService.target != null) {
       _finalizer?.detach(service);
     }
 
@@ -541,9 +538,9 @@ class ServiceProvider {
 
   /// Wait for all current services to be initialized
   FutureOr waitServicesInitialize() {
-    var parentWait = parent?.waitServicesInitialize();
-    var selfProcress = _asyncServiceInitializeProcessByType.values.expand((element) => element);
-    var futures = <Future>[
+    final parentWait = parent?.waitServicesInitialize();
+    final selfProcress = _asyncServiceInitializeProcessByType.values.expand((element) => element);
+    final futures = <Future>[
       if (parentWait is Future) parentWait,
       ...selfProcress,
     ];
@@ -552,6 +549,28 @@ class ServiceProvider {
       () async {
         await Future.wait(futures);
         await waitServicesInitialize();
+      },
+    );
+  }
+
+  /// Wait for the service of the specified type to be initialized
+  FutureOr waitServiceInitialize<T>() {
+    return waitServiceInitializeByType(T);
+  }
+
+  /// Wait for the service of the specified type to be initialized
+  FutureOr waitServiceInitializeByType(Type type) {
+    final parentWait = parent?.waitServiceInitializeByType(type);
+    final selfProcress = _asyncServiceInitializeProcessByType[type] ?? [];
+    final futures = <Future>[
+      if (parentWait is Future) parentWait,
+      ...selfProcress,
+    ];
+    if (futures.isEmpty) return null;
+    return Future(
+      () async {
+        await Future.wait(futures);
+        await waitServiceInitializeByType(type);
       },
     );
   }
