@@ -1,3 +1,7 @@
+## 1.1.5
+
+- rename waitServiceInitializeByType to waitForServiceInitializeByType
+
 ## 1.1.4
 
 - waitServiceInitializeByType

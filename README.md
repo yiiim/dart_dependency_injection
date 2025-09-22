@@ -39,7 +39,7 @@ var testService = provider.get<TestService>();
 
 ### Adding Services
 
-create a ```ServiceCollection```:
+create a `ServiceCollection`:
 
 ```dart
 var collection = ServiceCollection();
@@ -161,6 +161,26 @@ var collection = ServiceCollection();
 collection.add<TestService>((serviceProvider) => TestService(), initializeWhenServiceProviderBuilt: true);
 var provider = collection.build();
 // TestService will be created once and initialized immediately
+```
+
+## Service Configuration
+
+You can configure a service after it is created and before it is initialized.
+
+```dart
+var collection = ServiceCollection();
+collection.add<TestService>((serviceProvider) => TestService());
+collection.configure<TestService>((TestService service) {
+  service.value1 = 42;
+});
+// you can call configure multiple times
+collection.configure<TestService>((TestService service) {
+  service.value2 = 43;
+});
+var provider = collection.build();
+var testService = provider.get<TestService>();
+print(testService.value1); // 42
+print(testService.value2); // 43
 ```
 
 ## ServiceObserver

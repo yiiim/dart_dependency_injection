@@ -554,13 +554,13 @@ class ServiceProvider {
   }
 
   /// Wait for the service of the specified type to be initialized
-  FutureOr waitServiceInitialize<T>() {
-    return waitServiceInitializeByType(T);
+  FutureOr waitForServiceInitialize<T>() {
+    return waitForServiceInitializeByType(T);
   }
 
   /// Wait for the service of the specified type to be initialized
-  FutureOr waitServiceInitializeByType(Type type) {
-    final parentWait = parent?.waitServiceInitializeByType(type);
+  FutureOr waitForServiceInitializeByType(Type type) {
+    final parentWait = parent?.waitForServiceInitializeByType(type);
     final selfProcress = _asyncServiceInitializeProcessByType[type] ?? [];
     final futures = <Future>[
       if (parentWait is Future) parentWait,
@@ -570,7 +570,7 @@ class ServiceProvider {
     return Future(
       () async {
         await Future.wait(futures);
-        await waitServiceInitializeByType(type);
+        await waitForServiceInitializeByType(type);
       },
     );
   }

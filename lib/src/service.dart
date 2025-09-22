@@ -89,11 +89,11 @@ mixin DependencyInjectionService on Object {
   /// same as [ServiceProvider.waitServicesInitialize]
   FutureOr waitServicesInitialize() => serviceProvider.waitServicesInitialize();
 
-  /// same as [ServiceProvider.waitServiceInitialize]
-  FutureOr waitServiceInitialize<T>() => serviceProvider.waitServiceInitialize<T>();
+  /// same as [ServiceProvider.waitForServiceInitialize]
+  FutureOr waitForServiceInitialize<T>() => serviceProvider.waitForServiceInitialize<T>();
 
-  /// same as [ServiceProvider.waitServiceInitializeByType]
-  FutureOr waitServiceInitializeByType(Type type) => serviceProvider.waitServiceInitializeByType(type);
+  /// same as [ServiceProvider.waitForServiceInitializeByType]
+  FutureOr waitForServiceInitializeByType(Type type) => serviceProvider.waitForServiceInitializeByType(type);
 
   bool _disposed = false;
 
@@ -115,7 +115,7 @@ mixin DependencyInjectionService on Object {
     assert(_boundles.isEmpty);
   }
 
-  /// 当所在的[ServiceProvider]被释放时执行
+  /// Dispose the current service
   @mustCallSuper
   void dispose() {
     _dispose(fromUser: true);
