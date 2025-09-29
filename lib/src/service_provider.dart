@@ -45,7 +45,8 @@ class _ServiceBoundle {
   _ServiceBoundle({
     required this.serviceType,
     required this.serviceDefinition,
-    required this.scoped,
+    required this.scope,
+    required this.definedIn,
     required this.observer,
     required Object service,
     bool strongReference = false,
@@ -62,7 +63,10 @@ class _ServiceBoundle {
   final ServiceDescriptor serviceDefinition;
 
   /// the service of scope
-  final ServiceProvider scoped;
+  final ServiceProvider scope;
+
+  /// the service of scope
+  final ServiceProvider definedIn;
 
   /// the scope provider created by this bundle
   late final List<ServiceProvider> scopedProvider = [];
@@ -126,16 +130,16 @@ class _ServiceBoundle {
     // if this boundle is not dispose by service provider, maybe dispose by service itself or finalizer, remove it from service provider
     if (!disposeByServiceProvider) {
       if (serviceDefinition.isSingleton) {
-        scoped._singletons[serviceType] = null;
+        scope._singletons[serviceType] = null;
       } else if (serviceDefinition.isScopeSingleton) {
-        scoped._scopedSingletons[serviceType] = null;
+        scope._scopedSingletons[serviceType] = null;
       } else {
-        if (scoped._transientServices.isNotEmpty) {
-          assert(scoped._transientServices[serviceType]!.contains(this));
-          var transientServices = scoped._transientServices[serviceType];
+        if (scope._transientServices.isNotEmpty) {
+          assert(scope._transientServices[serviceType]!.contains(this));
+          var transientServices = scope._transientServices[serviceType];
           transientServices?.remove(this);
           if (transientServices?.isEmpty == true) {
-            scoped._transientServices.remove(serviceType);
+            scope._transientServices.remove(serviceType);
           }
         }
       }
@@ -210,9 +214,10 @@ class _BuildFromServiceScope {
 class ServiceProvider {
   ServiceProvider._(
     Map<Type, ServiceDescriptor> serviceDescriptors, {
-    this.parent,
+    ServiceProvider? parent,
     Object? scope,
-  })  : serviceDescriptors = UnmodifiableMapView(serviceDescriptors),
+  })  : _parent = parent,
+        serviceDescriptors = UnmodifiableMapView(serviceDescriptors),
         _scope = scope,
         _observerServiceDescriptor = serviceDescriptors.values.whereType<ServiceDescriptor<ServiceObserver>>().toList();
 
@@ -224,29 +229,31 @@ class ServiceProvider {
     return _scope;
   }
 
+  ServiceProvider? _parent;
+
   /// the parent provider, if not null, this provider is a scope provider
-  final ServiceProvider? parent;
+  ServiceProvider? get parent => _parent;
 
   /// all of the service descriptors
   final Map<Type, ServiceDescriptor> serviceDescriptors;
 
   /// all the [Future] that currently executing [DependencyInjectionService.dependencyInjectionServiceInitialize]
-  late final Map<Type, List<Future>> _asyncServiceInitializeProcessByType = {};
+  final Map<Type, List<Future>> _asyncServiceInitializeProcessByType = {};
 
   /// [Future] of the latest service execution [DependencyInjectionService.dependencyInjectionServiceInitialize]
   Future? _latestServiceInitializeProcess;
 
   /// all the singletons in this provider
-  late final Map<Type, _ServiceBoundle?> _singletons = {};
+  final Map<Type, _ServiceBoundle?> _singletons = {};
 
   /// all the scope singletons in this provider
-  late final Map<Type, _ServiceBoundle?> _scopedSingletons = {};
+  final Map<Type, _ServiceBoundle?> _scopedSingletons = {};
 
   /// all the alive transient services in this provider
-  late final Map<Type, List<_ServiceBoundle>> _transientServices = {};
+  final Map<Type, List<_ServiceBoundle>> _transientServices = {};
 
   /// all the sub scope provider
-  late final List<ServiceProvider> _scopeds = [];
+  final List<ServiceProvider> _scopeds = [];
 
   /// all the [ServiceDescriptor] of service observers
   final List<ServiceDescriptor<ServiceObserver>> _observerServiceDescriptor;
@@ -267,6 +274,52 @@ class ServiceProvider {
   @visibleForTesting
   List<Object>? getExistTransient(Type serviceType) {
     return _transientServices[serviceType];
+  }
+
+  /// Transfers the current service scope to a new parent scope.
+  ///
+  /// The state remains safe after the transfer. Requesting a service will not retrieve a stale instance from the old scope.
+  /// If a service was previously fetched, its validity in the new scope depends on where it was defined:
+  /// - If the service definition is shared between the old and new scopes (i.e., in a common ancestor), a previously fetched singleton or scoped-singleton instance remains valid.
+  /// - Otherwise, a new instance will be created according to its lifetime. A scoped-singleton will be recreated, and a singleton will resolve to the instance from the new scope's hierarchy.
+  ///
+  /// **Performance and Memory:**
+  /// This operation is very fast as it only switches the parent reference. However, it does not clean up service instances
+  /// inherited from the old parent scope.
+  ///
+  /// **Potential Risks:**
+  /// Service instances created in the old scope that are no longer accessible will remain in memory until this scope itself is disposed.
+  ///
+  /// **Use Cases and Trade-offs:**
+  /// This method is suitable for performance-critical scenarios where the transferred scope is short-lived, or where temporary memory overhead is acceptable. For general use, recreating the scope is the recommended approach for guaranteed memory safety.
+  ///
+  /// [newParent] The new parent `ServiceProvider`. If `null`, the current scope will become a root scope.
+  void transferScope(ServiceProvider? newParent) {
+    assert(newParent != this, 'can not reparent to self');
+    assert(() {
+      bool isChild(ServiceProvider parent, ServiceProvider child) {
+        if (parent._scopeds.contains(child)) {
+          return true;
+        }
+        for (var element in parent._scopeds) {
+          if (isChild(element, child)) {
+            return true;
+          }
+        }
+        return false;
+      }
+
+      if (newParent != null) {
+        return !isChild(this, newParent);
+      }
+      return true;
+    }(), 'can not reparent to child');
+    if (_parent == newParent) {
+      return;
+    }
+    _parent?._scopeds.remove(this);
+    newParent?._scopeds.add(this);
+    _parent = newParent;
   }
 
   /// find the service observer from this provider
@@ -313,7 +366,7 @@ class ServiceProvider {
     } else if (serviceDefinition.isScopeSingleton) {
       assert(!serviceScope._scopedSingletons.containsKey(serviceType) || serviceScope._scopedSingletons[serviceType] != null, 'scope singleton service was disposed');
       _ServiceBoundle? scopedSingletonValue = serviceScope._scopedSingletons[serviceType];
-      if (scopedSingletonValue != null) {
+      if (scopedSingletonValue != null && scopedSingletonValue.definedIn == this) {
         if ((dealScoped._latestServiceInitializeProcess = dealScoped._asyncServiceInitializeProcessByType[serviceType]?.firstOrNull) != null) {
           scheduleMicrotask(() => dealScoped._latestServiceInitializeProcess = null);
         }
@@ -343,7 +396,8 @@ class ServiceProvider {
     var observers = _getObservers(serviceDefinition, dealScoped).toList();
     // create boundle
     var boundle = _ServiceBoundle(
-      scoped: serviceScope,
+      scope: serviceScope,
+      definedIn: this,
       service: service,
       serviceDefinition: serviceDefinition,
       serviceType: serviceType,

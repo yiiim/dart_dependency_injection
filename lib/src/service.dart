@@ -12,7 +12,7 @@ mixin DependencyInjectionService on Object {
 
   void _attachToBoundle(_ServiceBoundle boundle) {
     assert(() {
-      if (_boundle?.scoped != null && _boundle?.scoped != boundle.scoped) {
+      if (_boundle?.scope != null && _boundle?.scope != boundle.scope) {
         print("Warning! Same instance injected in different service scopes");
       }
       return true;
@@ -57,8 +57,8 @@ mixin DependencyInjectionService on Object {
 
   /// get service provider
   ServiceProvider get serviceProvider {
-    assert(_boundle?.scoped != null, 'this service create not from dependency injection or this service was disposed');
-    return _boundle!.scoped;
+    assert(_boundle?.scope != null, 'this service create not from dependency injection or this service was disposed');
+    return _boundle!.scope;
   }
 
   /// get service in current scope

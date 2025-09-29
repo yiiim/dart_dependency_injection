@@ -1,10 +1,14 @@
+## 1.1.6
+
+- new method `transferScope`
+
 ## 1.1.5
 
-- rename waitServiceInitializeByType to waitForServiceInitializeByType
+- rename `waitServiceInitializeByType` to `waitForServiceInitializeByType`
 
 ## 1.1.4
 
-- waitServiceInitializeByType
+- `waitForServiceInitializeByType`
 
 ## 1.1.3+2
 
