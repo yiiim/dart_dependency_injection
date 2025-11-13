@@ -1,6 +1,6 @@
 name: dart_dependency_injection
 description: The most powerful dependency injection library for Dart.
-version: 1.1.6
+version: 1.2.0
 homepage: https://github.com/yiiim/dart_dependency_injection
 
 topics:

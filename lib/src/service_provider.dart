@@ -106,8 +106,10 @@ class _ServiceBoundle {
   ///
   /// [disposeByServiceProvider] dispose by service provider
   void dispose({bool disposeByServiceProvider = false, bool disposeByFinalizer = false}) {
+    List<ServiceProvider> providers = List.of(scopedProvider);
+    scopedProvider.clear();
     // dispose all the scoped provider these are created by this boundle
-    for (var element in scopedProvider) {
+    for (var element in providers) {
       element.dispose();
     }
 
@@ -145,6 +147,12 @@ class _ServiceBoundle {
       }
     }
   }
+}
+
+class _ResolvedService {
+  _ResolvedService(this.descriptor, this.provider);
+  final ServiceDescriptor descriptor;
+  final ServiceProvider provider;
 }
 
 /// this is the scope identifier when [DependencyInjectionService] build a scoped service provider
@@ -258,6 +266,12 @@ class ServiceProvider {
   /// all the [ServiceDescriptor] of service observers
   final List<ServiceDescriptor<ServiceObserver>> _observerServiceDescriptor;
 
+  /// cache for service lookup
+  final Map<Type, _ResolvedService?> _lookupCache = {};
+
+  /// cache for observer service descriptors
+  List<_ResolvedService>? _cachedObserverServiceDescriptor;
+
   @visibleForTesting
   Object? getExistSingleton(Type serviceType) {
     if (_singletons.containsKey(serviceType)) {
@@ -320,6 +334,28 @@ class ServiceProvider {
     _parent?._scopeds.remove(this);
     newParent?._scopeds.add(this);
     _parent = newParent;
+    _invalidateCacheRecursive();
+  }
+
+  void _invalidateCacheRecursive() {
+    _lookupCache.clear();
+    _cachedObserverServiceDescriptor = null;
+    for (final child in _scopeds) {
+      child._invalidateCacheRecursive();
+    }
+  }
+
+  List<_ResolvedService> _getAndCacheAllObserverDescriptors() {
+    if (_cachedObserverServiceDescriptor != null) {
+      return _cachedObserverServiceDescriptor!;
+    }
+    final allObservers = <_ResolvedService>[];
+    ServiceProvider? provider = this;
+    while (provider != null) {
+      allObservers.addAll(provider._observerServiceDescriptor.map((d) => _ResolvedService(d, provider!)));
+      provider = provider.parent;
+    }
+    return _cachedObserverServiceDescriptor = allObservers;
   }
 
   /// find the service observer from this provider
@@ -327,23 +363,12 @@ class ServiceProvider {
   /// observer for the [serviceDefinition]
   /// [dealScoped] the scope of the service
   Iterable<ServiceObserver> _getObservers(ServiceDescriptor serviceDefinition, ServiceProvider dealScoped) {
-    assert(serviceDescriptors.values.contains(serviceDefinition));
-    Iterable<ServiceObserver> findObservers(ServiceProvider provider) sync* {
-      var observers = provider._observerServiceDescriptor.where(
-        (element) {
-          return element != serviceDefinition && (element.serviceType == ServiceObserver || serviceDefinition._isObserver(element));
-        },
-      ).map<ServiceObserver>(
-        (e) => provider.__get(e, e.serviceType, dealScoped),
-      );
-      yield* observers;
-      // find from parent
-      if (provider.parent != null) {
-        yield* findObservers(provider.parent!);
-      }
-    }
-
-    return findObservers(dealScoped);
+    final allObserverDescriptor = _getAndCacheAllObserverDescriptors();
+    return allObserverDescriptor.where((e) {
+      return e.descriptor != serviceDefinition && (e.descriptor.serviceType == ServiceObserver || serviceDefinition._isObserver(e.descriptor));
+    }).map(
+      (e) => e.provider.__get(e.descriptor, e.descriptor.serviceType, dealScoped),
+    );
   }
 
   late final List<ServiceDescriptor> _debugGettingServiceDefinition = [];
@@ -451,12 +476,32 @@ class ServiceProvider {
   }
 
   dynamic _get(Type serviceType, {ServiceProvider? dealScoped}) {
-    final serviceDefinition = serviceDescriptors[serviceType];
-    if (serviceDefinition == null) {
-      var service = parent?._get(serviceType, dealScoped: dealScoped ?? this);
-      return service;
+    if (_lookupCache.containsKey(serviceType)) {
+      final cachedResult = _lookupCache[serviceType];
+      if (cachedResult == null) {
+        return null;
+      }
+      return cachedResult.provider.__get(cachedResult.descriptor, serviceType, dealScoped ?? this);
     }
-    return __get(serviceDefinition, serviceType, dealScoped ?? this);
+    ServiceProvider? provider = this;
+    ServiceDescriptor? serviceDefinition;
+
+    while (provider != null) {
+      serviceDefinition = provider.serviceDescriptors[serviceType];
+      if (serviceDefinition != null) {
+        break;
+      }
+      provider = provider._parent;
+    }
+
+    if (serviceDefinition == null || provider == null) {
+      _lookupCache[serviceType] = null;
+      return null;
+    }
+
+    final resolvedService = _ResolvedService(serviceDefinition, provider);
+    _lookupCache[serviceType] = resolvedService;
+    return provider.__get(serviceDefinition, serviceType, dealScoped ?? this);
   }
 
   /// ## Get service from [ServiceProvider]
@@ -642,18 +687,20 @@ class ServiceProvider {
   ///
   /// will dispose all the services and sub scopes
   void dispose() {
+    final Map<Type, _ServiceBoundle?> singletons = Map.of(_singletons);
+    _singletons.clear();
     // dispose singleton service
-    for (final element in _singletons.keys) {
-      _singletons[element]?.dispose(disposeByServiceProvider: true);
-      _singletons[element] = null;
+    for (final element in singletons.keys) {
+      singletons[element]?.dispose(disposeByServiceProvider: true);
     }
+    final Map<Type, _ServiceBoundle?> scopedSingletons = Map.of(_scopedSingletons);
+    _scopedSingletons.clear();
     // dispose scope singleton service
-    for (final element in _scopedSingletons.keys) {
-      _scopedSingletons[element]?.dispose(disposeByServiceProvider: true);
-      _scopedSingletons[element] = null;
+    for (final element in scopedSingletons.keys) {
+      scopedSingletons[element]?.dispose(disposeByServiceProvider: true);
     }
     // dispose transient service
-    var transientServices = Map.of(_transientServices);
+    final Map<Type, List<_ServiceBoundle>> transientServices = Map.of(_transientServices);
     _transientServices.clear();
     for (final element in transientServices.values) {
       for (final element2 in element) {

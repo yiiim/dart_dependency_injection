@@ -1,3 +1,7 @@
+## 1.2.0
+
+- optimize service lookup with cache
+
 ## 1.1.6
 
 - new method `transferScope`
